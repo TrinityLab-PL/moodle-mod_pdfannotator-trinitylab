@@ -48,6 +48,7 @@
     php admin/cli/maintenance.php --disable
   ```
   (`|| true` tylko po to, żeby przy błędzie w `--cmd` bash nie zatrzymał się przed `maintenance.php --disable`; błąd skryptu = zmiany w stanie niepewnym, raportować użytkownikowi).
+- Czas trwania maintenance (od `--enable` do `--disable`) ma być minimalny; docelowo **≤ 1–1,5 s**. Cały kod zmiany (sed/patch/python) musi być przygotowany i sprawdzony **przed** wywołaniem `edit-with-maintenance.sh` – wewnątrz maintenance wykonujemy tylko gotowy, krótki patch.
 - W odpowiedzi **zawsze** raportować: czy skrypt zakończył się sukcesem (exit 0) czy błędem; że wykonano `php admin/cli/maintenance.php --disable`; **nie kończyć promptu** bez pewności, że maintenance jest wyłączony.
 
 ---

@@ -26,6 +26,7 @@ Plik `mod/pdfannotator/shared/index.js` (oraz ewentualnie inne objęte skryptem)
 - Skrypt może **zostawić Moodle w maintenance**, gdy `--cmd` zwróci exit != 0. **ZAKAZ** kończenia promptu z serwerem w maintenance.
 - Każdy bash z `edit-with-maintenance.sh --cmd` musi na końcu **wymusić wyjście z maintenance** w tym samym wywołaniu:
   `cd /var/www/html/moodle && ./mod/pdfannotator/edit-with-maintenance.sh --cmd '...' || true; php admin/cli/maintenance.php --disable`
+- Czas trwania maintenance (od `--enable` do `--disable`) ma być minimalny; docelowo **≤ 1–1,5 s**. Cały kod zmiany (sed/patch/python) musi być przygotowany i sprawdzony **przed** wywołaniem `edit-with-maintenance.sh` – wewnątrz maintenance wykonujemy tylko gotowy, krótki patch.
 - W odpowiedzi zawsze raportować: wynik skryptu (exit 0 / błąd) oraz że wykonano `php admin/cli/maintenance.php --disable`. Nie kończyć promptu bez pewności, że maintenance jest wyłączony.
 
 ## Włączenie blokady zapisu (opcjonalnie, po Twojej stronie)
