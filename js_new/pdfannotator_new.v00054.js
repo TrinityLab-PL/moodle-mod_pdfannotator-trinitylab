@@ -972,6 +972,10 @@
             }
 
             if (tool === 'textbox' && pointer && !draftRect) {
+                if (state.ignoreNextTextboxClick) {
+                    state.ignoreNextTextboxClick = false;
+                    return;
+                }
                 showNewTextboxEditor(pageNumber, pointer.x, pointer.y);
                 return;
             }
@@ -1701,6 +1705,27 @@
         editor.addEventListener('input', resizeEditorToContent);
         editor.addEventListener('keyup', resizeEditorToContent);
         resizeEditorToContent();
+        var saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'tl-save-textbox';
+        saveBtn.setAttribute('aria-label', 'Save');
+        saveBtn.innerHTML = '<i class="fa fa-check" aria-hidden="true"></i>';
+        saveBtn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); commit(); });
+        saveBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+        pageElement.appendChild(saveBtn);
+        function updateSaveBtnPos() {
+            saveBtn.style.left = (editor.offsetLeft + editor.offsetWidth - 12) + 'px';
+            saveBtn.style.top = (editor.offsetTop - 12) + 'px';
+        }
+        var resizeEditorToContentWithBtn = function () {
+            resizeEditorToContent();
+            updateSaveBtnPos();
+        };
+        editor.removeEventListener('input', resizeEditorToContent);
+        editor.removeEventListener('keyup', resizeEditorToContent);
+        editor.addEventListener('input', resizeEditorToContentWithBtn);
+        editor.addEventListener('keyup', resizeEditorToContentWithBtn);
+        updateSaveBtnPos();
         editor.addEventListener('mousedown', function (event) { event.stopPropagation(); });
         editor.addEventListener('click', function (event) { event.stopPropagation(); });
         editor.addEventListener('dblclick', function (event) { event.stopPropagation(); });
@@ -1714,6 +1739,9 @@
             }
             committed = true;
             state.ignoreNextTextboxClick = true;
+            if (saveBtn && saveBtn.parentNode) {
+                saveBtn.parentNode.removeChild(saveBtn);
+            }
             if (measureEl && measureEl.parentNode) {
                 measureEl.parentNode.removeChild(measureEl);
             }
@@ -1732,6 +1760,9 @@
         editor.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {
                 committed = true;
+                if (saveBtn && saveBtn.parentNode) {
+                    saveBtn.parentNode.removeChild(saveBtn);
+                }
                 if (measureEl && measureEl.parentNode) {
                     measureEl.parentNode.removeChild(measureEl);
                 }
@@ -1812,9 +1843,25 @@
             editor.style.height = h + 'px';
         }
 
-        editor.addEventListener('input', resizeEditorToContent);
-        editor.addEventListener('keyup', resizeEditorToContent);
-        resizeEditorToContent();
+        var saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'tl-save-textbox';
+        saveBtn.setAttribute('aria-label', 'Save');
+        saveBtn.innerHTML = '<i class="fa fa-check" aria-hidden="true"></i>';
+        saveBtn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); commit(); });
+        saveBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+        pageElement.appendChild(saveBtn);
+        function updateSaveBtnPos() {
+            saveBtn.style.left = (editor.offsetLeft + editor.offsetWidth - 12) + 'px';
+            saveBtn.style.top = (editor.offsetTop - 12) + 'px';
+        }
+        function resizeAndUpdateBtn() {
+            resizeEditorToContent();
+            updateSaveBtnPos();
+        }
+        editor.addEventListener('input', resizeAndUpdateBtn);
+        editor.addEventListener('keyup', resizeAndUpdateBtn);
+        resizeAndUpdateBtn();
 
         editor.addEventListener('mousedown', function (event) { event.stopPropagation(); });
         editor.addEventListener('click', function (event) { event.stopPropagation(); });
@@ -1827,6 +1874,9 @@
 
         function cleanup() {
             try {
+                if (saveBtn && saveBtn.parentNode) {
+                    saveBtn.parentNode.removeChild(saveBtn);
+                }
                 if (measureEl && measureEl.parentNode) {
                     measureEl.parentNode.removeChild(measureEl);
                 }

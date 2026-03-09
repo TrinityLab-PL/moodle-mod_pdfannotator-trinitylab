@@ -1985,6 +1985,28 @@ body.tl-pdf-fullscreen #viewer .tl-konva-host {
     line-height: 1;
 }
 
+.tl-save-textbox {
+    position: absolute;
+    z-index: 41;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 0;
+    background: #059669;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.tl-save-textbox i {
+    font-size: 14px;
+    line-height: 1;
+}
+
 .tl-shoelace-toolbar {
     display: flex;
     flex-wrap: wrap;
