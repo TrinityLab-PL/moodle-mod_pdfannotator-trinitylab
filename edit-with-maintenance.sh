@@ -7,6 +7,15 @@ set -e
 MOODLE_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$MOODLE_ROOT"
 
+MAINTENANCE_ENABLED=0
+cleanup_on_exit() {
+  if [ "$MAINTENANCE_ENABLED" = 1 ]; then
+    php admin/cli/maintenance.php --disable 2>/dev/null || true
+    lock_file 2>/dev/null || true
+  fi
+}
+trap cleanup_on_exit EXIT
+
 BACKUP_INDEX="/root/trinity_lab_backup/v100_full_snapshot_pdfannotator_20260309_071509/mod/shared/index.js"
 PROTECTED="mod/pdfannotator/shared/index.js"
 
@@ -20,6 +29,7 @@ unlock_file() {
 
 do_restore() {
   php admin/cli/maintenance.php --enable
+  MAINTENANCE_ENABLED=1
   unlock_file
   cp -f "$BACKUP_INDEX" "$MOODLE_ROOT/$PROTECTED"
   php admin/cli/purge_caches.php
@@ -31,6 +41,7 @@ do_restore() {
 do_cmd() {
   local cmd="$1"
   php admin/cli/maintenance.php --enable
+  MAINTENANCE_ENABLED=1
   unlock_file
   eval "$cmd"
   php admin/cli/purge_caches.php
