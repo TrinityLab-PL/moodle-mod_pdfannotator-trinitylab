@@ -62,10 +62,18 @@
 
 ### 4.1 Wszystko gotowe – zero kroków ręcznych (MUST)
 
-- **Użytkownik ma mieć wszystko gotowe** – żadnych list poleceń do ręcznego wpisywania, żadnych „uruchom te 3 komendy”.
-- Backup tworzyć w ścieżce **zapisywalnej bez sudo** (np. `$HOME/trinity_lab_backup/` lub `mod/pdfannotator/_backups/`). Jeśli zapis do `/root/trinity_lab_backup/` wymaga hasła, **nie** kończyć na „skopiuj ręcznie”.
-- **Zawsze** dołączyć **jeden skrypt** wykonywalny, który użytkownik uruchamia **raz** z sudo i który sam: tworzy katalog w `/root/trinity_lab_backup/`, kopiuje tam backup, ustawia `chown -R root:root`. Skrypt: `mod/pdfannotator/scripts/copy_backup_to_root.sh` (argument: opcjonalna nazwa katalogu backupu, np. `v104_textbox_click_annotation_layer_hit_20260310_154016`; bez argumentu – ostatni backup z `$HOME/trinity_lab_backup/`).
-- W odpowiedzi podawać **jedno** polecenie: `sudo ./mod/pdfannotator/scripts/copy_backup_to_root.sh [nazwa_backupu]`.
+- **Użytkownik ma mieć wszystko gotowe** – żadnych list poleceń do ręcznego wpisywania, żadnych skryptów z COPY_BACKUP_SOURCE ani ścieżek do skryptu.
+- Backup tworzyć w ścieżce **zapisywalnej bez sudo** (np. `$HOME/trinity_lab_backup/` lub `mod/pdfannotator/_backups/`).
+- **Zawsze** dołączyć **jeden bash** do skopiowania backupu do `/root/trinity_lab_backup/` – w **tej samej strukturze** za każdym razem, z **tylko nazwą backupu** zmienioną na aktualną (np. `v106_opis_YYYYMMDD_HHMMSS`). Forma:
+
+  ```bash
+  sudo mkdir -p /root/trinity_lab_backup && \
+  sudo cp -a /home/piotrad/trinity_lab_backup/NAZWA_BACKUPU /root/trinity_lab_backup/ && \
+  sudo chown -R root:root /root/trinity_lab_backup/NAZWA_BACKUPU && \
+  echo "OK"
+  ```
+
+  (W odpowiedzi wstawić rzeczywistą nazwę katalogu backupu zamiast `NAZWA_BACKUPU`.)
 
 ---
 
