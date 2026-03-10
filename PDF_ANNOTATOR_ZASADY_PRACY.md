@@ -60,6 +60,13 @@
 - **Nie wolno przywracać starszych backupów bez zgody użytkownika** — przywracać wyłącznie najnowszy backup lub wersję wskazaną przez użytkownika.
 - Po backupie: diff do weryfikacji.
 
+### 4.1 Wszystko gotowe – zero kroków ręcznych (MUST)
+
+- **Użytkownik ma mieć wszystko gotowe** – żadnych list poleceń do ręcznego wpisywania, żadnych „uruchom te 3 komendy”.
+- Backup tworzyć w ścieżce **zapisywalnej bez sudo** (np. `$HOME/trinity_lab_backup/` lub `mod/pdfannotator/_backups/`). Jeśli zapis do `/root/trinity_lab_backup/` wymaga hasła, **nie** kończyć na „skopiuj ręcznie”.
+- **Zawsze** dołączyć **jeden skrypt** wykonywalny, który użytkownik uruchamia **raz** z sudo i który sam: tworzy katalog w `/root/trinity_lab_backup/`, kopiuje tam backup, ustawia `chown -R root:root`. Skrypt: `mod/pdfannotator/scripts/copy_backup_to_root.sh` (argument: opcjonalna nazwa katalogu backupu, np. `v104_textbox_click_annotation_layer_hit_20260310_154016`; bez argumentu – ostatni backup z `$HOME/trinity_lab_backup/`).
+- W odpowiedzi podawać **jedno** polecenie: `sudo ./mod/pdfannotator/scripts/copy_backup_to_root.sh [nazwa_backupu]`.
+
 ---
 
 ## 5. Testy przed i po (bramka)

@@ -1012,7 +1012,6 @@
                     var data = hitGroup.getAttr('annotationData');
                     if (data && data.type === 'textbox') {
                         selectAnnotation(pageNumber, hitGroup);
-                        showTextboxEditor(pageNumber, data);
                         return;
                     }
                     if (data && data.type !== 'textbox') {
@@ -1728,13 +1727,14 @@
         editor.style.fontSize = displayFontSize + 'px';
         editor.style.fontFamily = editorFontFamily + ', sans-serif';
         editor.style.color = annotationData.color || state.textColor || '#111827';
+        editor.style.lineHeight = '1.25';
         pageElement.appendChild(editor);
         var measureEl = document.createElement('div');
         measureEl.setAttribute('aria-hidden', 'true');
         measureEl.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre-wrap;word-wrap:break-word;pointer-events:none;margin:0;border:none;padding:0;';
         measureEl.style.fontSize = displayFontSize + 'px';
         measureEl.style.fontFamily = editorFontFamily + ', sans-serif';
-        measureEl.style.lineHeight = '1.2';
+        measureEl.style.lineHeight = '1.25';
         pageElement.appendChild(measureEl);
         function resizeEditorToContent() {
             var tmp = {
@@ -1855,8 +1855,9 @@
 
         var paddingTop = 5;
         var paddingLeft = 6;
+        var baselineOffset = Math.round(displayFontSize * 0.78);
         editor.style.left = (pointerX - paddingLeft) + 'px';
-        editor.style.top = (pointerY - paddingTop) + 'px';
+        editor.style.top = (pointerY - paddingTop - baselineOffset) + 'px';
         editor.style.minWidth = '60px';
         editor.style.minHeight = '36px';
         editor.style.width = '60px';
@@ -1864,7 +1865,7 @@
         editor.style.fontSize = displayFontSize + 'px';
         editor.style.fontFamily = editorFontFamily + ', sans-serif';
         editor.style.color = state.textColor || '#111827';
-        editor.style.lineHeight = '1.2';
+        editor.style.lineHeight = '1.25';
         editor.style.outline = 'none';
         editor.style.webkitFontSmoothing = 'subpixel-antialiased';
         editor.style.textRendering = 'geometricPrecision';
@@ -1876,7 +1877,7 @@
         measureEl.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre-wrap;word-wrap:break-word;pointer-events:none;margin:0;border:none;padding:0;';
         measureEl.style.fontSize = displayFontSize + 'px';
         measureEl.style.fontFamily = editorFontFamily + ', sans-serif';
-        measureEl.style.lineHeight = '1.2';
+        measureEl.style.lineHeight = '1.25';
         pageElement.appendChild(measureEl);
 
         function resizeEditorToContent() {
@@ -1962,7 +1963,7 @@
             }
 
             var unscaledBoxX = (pointerX - paddingLeft) / state.scale;
-            var unscaledBoxY = (pointerY - paddingTop) / state.scale;
+            var unscaledBoxY = (pointerY - paddingTop - baselineOffset) / state.scale;
 
             var measure = {
                 type: 'textbox',
@@ -2093,7 +2094,7 @@
             labelEl.style.height = Math.max(0, boxHeight - textPaddingY * 2) + 'px';
             labelEl.style.fontSize = textFontSizePx + 'px';
             labelEl.style.fontFamily = (annotation.font || state.textFont || 'Open Sans') + ', sans-serif';
-            labelEl.style.lineHeight = '1.2';
+            labelEl.style.lineHeight = '1.25';
             labelEl.style.color = annotation.color || '#1f2937';
             labelEl.style.overflow = 'hidden';
             labelEl.style.pointerEvents = 'none';
@@ -2213,14 +2214,9 @@
 
         group.on('click tap', function (event) {
             event.cancelBubble = true;
-            var alreadySelected = state.activeAnnotation && state.activeAnnotation.annotationId === String(annotation.uuid);
             selectAnnotation(pageNumber, group);
             ensureCommentPanelVisible();
             loadCommentsForAnnotation(annotation.uuid, annotation.type);
-            if (annotation.type === 'textbox' && alreadySelected) {
-                var currentData = group.getAttr('annotationData') || annotation;
-                showTextboxEditor(pageNumber, currentData);
-            }
         });
 
         if (annotation.type === 'textbox') {
