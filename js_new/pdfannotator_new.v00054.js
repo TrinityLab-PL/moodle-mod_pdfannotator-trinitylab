@@ -833,8 +833,8 @@
             if (annotation.type === 'textbox') {
                 var labelEl = activeGroup.getAttr('textboxLabelEl');
                 if (labelEl) {
-                    var padX = 12;
-                    var padY = 10;
+                    var padX = 6;
+                    var padY = 5;
                     labelEl.style.left = (annotation.x * scale + padX) + 'px';
                     labelEl.style.top = (annotation.y * scale + padY) + 'px';
                     labelEl.style.width = Math.max(0, annotation.width * scale - padX * 2) + 'px';
@@ -948,7 +948,7 @@
             }
         });
 
-        stage.on('mouseup touchend', function () {
+        stage.on('mouseup touchend', function (event) {
             var tool = state.activeTool;
             var pointer = stage.getPointerPosition();
             if (drawing) {
@@ -975,6 +975,51 @@
                 if (state.ignoreNextTextboxClick) {
                     state.ignoreNextTextboxClick = false;
                     return;
+                }
+                var domTarget = event && event.evt && event.evt.target;
+                if (domTarget && domTarget.closest && (domTarget.closest('.tl-inline-text-editor') || domTarget.closest('.tl-textbox-label') || domTarget.closest('.tl-save-textbox'))) {
+                    return;
+                }
+                var pageState = getPageState(pageNumber);
+                var hit = (pageState && pageState.annotationLayer)
+                    ? pageState.annotationLayer.getIntersection(pointer)
+                    : stage.getIntersection(pointer);
+                var hitGroup = null;
+                if (hit) {
+                    var n = hit;
+                    while (n) {
+                        if (n.getAttr && n.getAttr('annotationData')) {
+                            hitGroup = n;
+                            break;
+                        }
+                        n = n.getParent && n.getParent();
+                    }
+                }
+                if (!hitGroup && pageState && pageState.annotationLayer) {
+                    var children = pageState.annotationLayer.getChildren();
+                    for (var i = children.length - 1; i >= 0; i--) {
+                        var gr = children[i];
+                        var ad = gr.getAttr && gr.getAttr('annotationData');
+                        if (!ad || ad.type !== 'textbox') { continue; }
+                        var rect = gr.getClientRect && gr.getClientRect();
+                        if (rect && pointer.x >= rect.x && pointer.x <= rect.x + rect.width && pointer.y >= rect.y && pointer.y <= rect.y + rect.height) {
+                            hitGroup = gr;
+                            break;
+                        }
+                    }
+                }
+                if (hitGroup) {
+                    var data = hitGroup.getAttr('annotationData');
+                    if (data && data.type === 'textbox') {
+                        selectAnnotation(pageNumber, hitGroup);
+                        showTextboxEditor(pageNumber, data);
+                        return;
+                    }
+                    if (data && data.type !== 'textbox') {
+                        selectAnnotation(pageNumber, hitGroup);
+                        setTool('cursor');
+                        return;
+                    }
                 }
                 showNewTextboxEditor(pageNumber, pointer.x, pointer.y);
                 return;
@@ -1626,8 +1671,8 @@
 
         var lineHeight = fontSize * 1.25;
         var textHeight = Math.max(lineHeight, lines.length * lineHeight);
-        var paddingX = 10;
-        var paddingY = 8;
+        var paddingX = 6;
+        var paddingY = 5;
 
         var newWidth = Math.max(40, Math.ceil(maxWidth + paddingX * 2));
         var newHeight = Math.max(30, Math.ceil(textHeight + paddingY * 2));
@@ -1672,6 +1717,7 @@
         editor.className = 'tl-inline-text-editor';
         editor.dataset.annotationId = String(annotationData.uuid);
         editor.value = annotationData.content || '';
+        editor.setAttribute('wrap', 'off');
         var editorFontSize = Math.max(10, Number(annotationData.size || state.textSize || 14));
         var displayFontSize = Math.max(10, Math.round(editorFontSize * (state.scale || 1)));
         var editorFontFamily = annotationData.font || state.textFont || 'Open Sans';
@@ -1691,14 +1737,20 @@
         measureEl.style.lineHeight = '1.2';
         pageElement.appendChild(measureEl);
         function resizeEditorToContent() {
-            var val = editor.value || ' ';
-            measureEl.textContent = val;
-            var contentW = measureEl.offsetWidth;
-            var contentH = measureEl.offsetHeight;
-            var padX = 12;
-            var padY = 10;
-            var w = Math.max(80, Math.ceil(contentW) + padX * 2 + 4);
-            var h = Math.max(36, Math.ceil(contentH) + padY * 2 + 4);
+            var tmp = {
+                size: editorFontSize,
+                font: editorFontFamily,
+                color: annotationData.color || state.textColor || '#111827',
+                content: editor.value || '',
+                width: Math.max(1, annotationData.width || 1),
+                height: Math.max(1, annotationData.height || 1),
+                x: annotationData.x || 0,
+                y: annotationData.y || 0
+            };
+            fitTextboxAroundContent(tmp);
+            var scale = state.scale || 1;
+            var w = Math.max(80, Math.ceil(tmp.width * scale));
+            var h = Math.max(36, Math.ceil(tmp.height * scale));
             editor.style.width = w + 'px';
             editor.style.height = h + 'px';
         }
@@ -1795,16 +1847,16 @@
         var editor = document.createElement('textarea');
         editor.className = 'tl-inline-text-editor';
         editor.value = '';
+        editor.setAttribute('wrap', 'off');
 
         var editorFontSize = Math.max(10, Number(state.textSize || 14));
         var editorFontFamily = state.textFont || 'Open Sans';
         var displayFontSize = Math.max(10, Math.round(editorFontSize * (state.scale || 1)));
 
-        var paddingTop = 10;
-        var paddingLeft = 12;
-        var caretOffset = displayFontSize * 0.72;
+        var paddingTop = 5;
+        var paddingLeft = 6;
         editor.style.left = (pointerX - paddingLeft) + 'px';
-        editor.style.top = (pointerY - paddingTop - caretOffset) + 'px';
+        editor.style.top = (pointerY - paddingTop) + 'px';
         editor.style.minWidth = '60px';
         editor.style.minHeight = '36px';
         editor.style.width = '60px';
@@ -1813,17 +1865,9 @@
         editor.style.fontFamily = editorFontFamily + ', sans-serif';
         editor.style.color = state.textColor || '#111827';
         editor.style.lineHeight = '1.2';
-        editor.style.border = '1px solid rgba(148, 163, 184, 0.4)';
         editor.style.outline = 'none';
-        editor.style.boxShadow = '0 1px 4px rgba(15, 23, 42, 0.08)';
         editor.style.webkitFontSmoothing = 'subpixel-antialiased';
         editor.style.textRendering = 'geometricPrecision';
-
-        editor.addEventListener('focus', function () {
-            editor.style.border = '1px solid rgba(148, 163, 184, 0.4)';
-            editor.style.outline = 'none';
-            editor.style.boxShadow = '0 1px 4px rgba(15, 23, 42, 0.08)';
-        });
 
         pageElement.appendChild(editor);
 
@@ -1836,12 +1880,20 @@
         pageElement.appendChild(measureEl);
 
         function resizeEditorToContent() {
-            var val = editor.value || ' ';
-            measureEl.textContent = val;
-            var contentW = measureEl.offsetWidth;
-            var contentH = measureEl.offsetHeight;
-            var w = Math.max(60, Math.ceil(contentW) + paddingLeft * 2 + 4);
-            var h = Math.max(36, Math.ceil(contentH) + paddingTop * 2 + 4);
+            var tmp = {
+                size: editorFontSize,
+                font: editorFontFamily,
+                color: state.textColor || '#111827',
+                content: editor.value || '',
+                width: 1,
+                height: 1,
+                x: 0,
+                y: 0
+            };
+            fitTextboxAroundContent(tmp);
+            var scale = state.scale || 1;
+            var w = Math.max(60, Math.ceil(tmp.width * scale));
+            var h = Math.max(36, Math.ceil(tmp.height * scale));
             editor.style.width = w + 'px';
             editor.style.height = h + 'px';
         }
@@ -1886,7 +1938,6 @@
                 }
                 editor.remove();
             } catch (e) {}
-            setTool('cursor');
         }
 
         function commit(fromBlur) {
@@ -1911,7 +1962,7 @@
             }
 
             var unscaledBoxX = (pointerX - paddingLeft) / state.scale;
-            var unscaledBoxY = (pointerY - paddingTop - caretOffset) / state.scale;
+            var unscaledBoxY = (pointerY - paddingTop) / state.scale;
 
             var measure = {
                 type: 'textbox',
@@ -2026,11 +2077,11 @@
                 height: boxHeight,
                 cornerRadius: 7,
                 fill: 'rgba(235, 242, 252, 0.35)',
-                stroke: 'rgba(148, 163, 184, 0.65)',
-                strokeWidth: 1
+                stroke: 'rgba(235, 242, 252, 0.35)',
+                strokeWidth: 0
             }));
-            var textPaddingX = 12;
-            var textPaddingY = 10;
+            var textPaddingX = 6;
+            var textPaddingY = 5;
             var textFontSizePx = Math.max(10, Math.round((annotation.size || state.textSize || 14) * scale));
             var labelEl = document.createElement('div');
             labelEl.className = 'tl-textbox-label';
@@ -2421,8 +2472,8 @@
             if (annotation.type === 'textbox') {
                 var labelEl = group.getAttr('textboxLabelEl');
                 if (labelEl) {
-                    var padX = 12;
-                    var padY = 10;
+                    var padX = 6;
+                    var padY = 5;
                     labelEl.style.left = (annotation.x * scale + padX) + 'px';
                     labelEl.style.top = (annotation.y * scale + padY) + 'px';
                 }

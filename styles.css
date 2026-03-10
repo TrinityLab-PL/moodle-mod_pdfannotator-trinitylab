@@ -2332,15 +2332,13 @@ body.tl-pdf-fullscreen .path-mod-pdfannotator .tl-save-textbox {
 .tl-inline-text-editor {
     position: absolute;
     z-index: 30;
-    border: 1px solid rgba(148, 163, 184, 0.5) !important;
     outline: none !important;
     outline-width: 0 !important;
     outline-style: none !important;
     -webkit-appearance: none;
     appearance: none;
-    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.1);
     border-radius: 7px;
-    padding: 10px 12px;
+    padding: 5px 6px;
     resize: none !important;
     overflow: hidden;
     background: rgba(240, 246, 253, 0.6);
@@ -2358,8 +2356,6 @@ body.tl-pdf-fullscreen .path-mod-pdfannotator .tl-save-textbox {
     outline: none !important;
     outline-width: 0 !important;
     outline-offset: 0 !important;
-    border-color: rgba(148, 163, 184, 0.5) !important;
-    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.1) !important;
 }
 
 /* Tekst textboxa w DOM – ostry render (nie canvas) */
@@ -2369,6 +2365,10 @@ body.tl-pdf-fullscreen .path-mod-pdfannotator .tl-save-textbox {
     pointer-events: none;
     margin: 0;
     padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
     -webkit-font-smoothing: subpixel-antialiased;
     -moz-osx-font-smoothing: auto;
     text-rendering: geometricPrecision;
