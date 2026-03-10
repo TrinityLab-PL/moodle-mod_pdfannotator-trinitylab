@@ -1,0 +1,6 @@
+v104_textbox_click_annotation_layer_hit
+Data: 2026-03-10
+Opis: Pełna kopia pluginu PDF Annotator po naprawie kliknięć w textboxy.
+Zmiana: hit-test wyłącznie na warstwie adnotacji (annotationLayer.getIntersection),
+bez overlay/transformer – każdy klik w textbox otwiera edycję (brak "co drugi zaznacza").
+Pliki zmieniane: js_new/pdfannotator_new.v00054.js
