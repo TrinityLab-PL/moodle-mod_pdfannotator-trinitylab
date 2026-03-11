@@ -335,6 +335,7 @@
         if (!viewer) {
             return;
         }
+        var savePosTimer = null;
         viewer.addEventListener('scroll', function () {
             var current = getCurrentPage();
             var currentPageInput = document.getElementById('currentPage');
@@ -343,6 +344,16 @@
             }
             updatePageCounter(current);
             updateDeleteButtonPosition();
+            if (savePosTimer) clearTimeout(savePosTimer);
+            savePosTimer = setTimeout(function () {
+                var key = 'pdfannotator_pos_' + state.contextId;
+                if (state.contextId != null) {
+                    var p = getCurrentPage();
+                    var top = viewer.scrollTop;
+                    try { localStorage.setItem(key, JSON.stringify({ page: p, scrollTop: top })); } catch (e) {}
+                }
+                savePosTimer = null;
+            }, 400);
         });
     }
 
@@ -654,8 +665,15 @@
             }(pageNumber));
         }
         chain.then(function () {
+            var viewer = viewerEl();
             var targetPage = Math.max(1, Math.min(state.pdf.numPages, parseInt(state.initialPage || 1, 10) || 1));
-            scrollToPage(targetPage);
+            if (viewer && viewer.scrollTop <= 80) {
+                scrollToPage(targetPage);
+            }
+            if (viewer && state.savedScrollTop != null) {
+                viewer.scrollTop = Math.max(0, Math.min(state.savedScrollTop, viewer.scrollHeight - viewer.clientHeight));
+                state.savedScrollTop = null;
+            }
             requestAnimationFrame(function () {
                 setTimeout(function () { startAnnotationWarmup(); }, 150);
             });
@@ -984,6 +1002,7 @@
             }
 
             if (pointer) {
+                clearSelection();
                 var domTarget = event && event.evt && event.evt.target;
                 if (!(domTarget && domTarget.closest && (domTarget.closest('.tl-inline-text-editor') || domTarget.closest('.tl-save-textbox')))) {
                     var pageState = getPageState(pageNumber);
@@ -1043,6 +1062,16 @@
                     return;
                 }
                 var pageState = getPageState(pageNumber);
+                var overlayHit = pageState && pageState.overlayLayer ? pageState.overlayLayer.getIntersection(pointer) : null;
+                if (overlayHit && pageState) {
+                    var node = overlayHit;
+                    while (node) {
+                        if (node === pageState.transformer) {
+                            return;
+                        }
+                        node = node.getParent ? node.getParent() : null;
+                    }
+                }
                 var hit = (pageState && pageState.annotationLayer)
                     ? pageState.annotationLayer.getIntersection(pointer)
                     : stage.getIntersection(pointer);
@@ -1942,6 +1971,7 @@
             redrawOneAnnotation(pageNumber, annotationData.uuid, annotationData);
             persistAnnotation(annotationData);
             editor.remove();
+            clearSelection();
         }
         editor.addEventListener('blur', function () { commit(true); });
         editor.addEventListener('keydown', function (event) {
@@ -1957,6 +1987,7 @@
                     labelEl.style.visibility = 'visible';
                 }
                 editor.remove();
+                clearSelection();
                 return;
             }
             if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
@@ -2084,6 +2115,7 @@
 
             var content = String(editor.value || '').trim();
             if (!content) {
+                state.ignoreNextTextboxClick = true;
                 cleanup();
                 return;
             }
@@ -2155,7 +2187,7 @@
                     pageState.annotationLayer.draw();
                 }
                 if (createdGroup) {
-                    selectAnnotation(pageNumber, createdGroup);
+                    clearSelection();
                 }
                 ensureCommentPanelVisible();
                 loadCommentsForAnnotation(created.uuid, created.type);
@@ -2706,7 +2738,7 @@
                 pageState.annotationLayer.draw();
             }
             if (createdGroup) {
-                selectAnnotation(pageNumber, createdGroup);
+                clearSelection();
             }
             ensureCommentPanelVisible();
             loadCommentsForAnnotation(created.uuid, created.type);
@@ -2785,7 +2817,22 @@
         state.userId = userId;
         state.capabilities = capabilities || {};
         state.toolbarSettings = toolbarSettings || {};
-        state.initialPage = page || 1;
+        var posKey = 'pdfannotator_pos_' + contextId;
+        var stored = null;
+        if (page !== 1) {
+            state.initialPage = page;
+        } else {
+            try {
+                var raw = typeof localStorage !== 'undefined' && localStorage.getItem(posKey);
+                if (raw) { stored = JSON.parse(raw); }
+            } catch (e) {}
+            if (stored && typeof stored.page === 'number' && stored.page >= 1) {
+                state.initialPage = stored.page;
+                state.savedScrollTop = typeof stored.scrollTop === 'number' ? stored.scrollTop : 0;
+            } else {
+                state.initialPage = 1;
+            }
+        }
         state.annoid = annoid;
         state.commid = commid;
         state.editorSettings = editorSettings || {};

@@ -2372,13 +2372,20 @@ body.tl-pdf-fullscreen .path-mod-pdfannotator .tl-save-textbox {
     margin: 0;
     padding: 0;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
+    align-items: flex-start;
+    justify-content: flex-start;
+    text-align: left;
     -webkit-font-smoothing: subpixel-antialiased;
     -moz-osx-font-smoothing: auto;
     text-rendering: geometricPrecision;
     transform: translateZ(0);
+}
+
+
+/* Fullscreen: force dark text for inline editor and textbox label */
+body.tl-pdf-fullscreen .tl-inline-text-editor,
+body.tl-pdf-fullscreen .tl-textbox-label {
+    color: #111827 !important;
 }
 
 .tl-inline-text-editor::selection {
