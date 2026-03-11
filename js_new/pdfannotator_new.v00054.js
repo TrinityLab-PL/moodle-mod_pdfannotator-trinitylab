@@ -1840,10 +1840,11 @@
         labelEl.style.overflow = 'hidden';
         labelEl.style.whiteSpace = 'pre';
         labelEl.style.wordBreak = 'normal';
+        var _isSingleLine = (annotation.content || '').split('\n').length === 1;
         labelEl.style.display = 'flex';
-        labelEl.style.alignItems = 'flex-start';
-        labelEl.style.justifyContent = 'flex-start';
-        labelEl.style.textAlign = 'left';
+        labelEl.style.alignItems = _isSingleLine ? 'center' : 'flex-start';
+        labelEl.style.justifyContent = _isSingleLine ? 'center' : 'flex-start';
+        labelEl.style.textAlign = _isSingleLine ? 'center' : 'left';
     }
 
 function fitTextboxAroundContent(annotationData) {
@@ -1883,15 +1884,8 @@ function fitTextboxAroundContent(annotationData) {
         var newWidth = Math.max(40, Math.ceil(maxWidth + paddingLeft + paddingRight + 4));
         var newHeight = Math.max(30, Math.ceil(textHeight + paddingY * 2));
 
-        var oldWidth = Math.max(1, Number(annotationData.width) || newWidth);
-        var oldHeight = Math.max(1, Number(annotationData.height) || newHeight);
-        var centerX = (Number(annotationData.x) || 0) + oldWidth / 2;
-        var centerY = (Number(annotationData.y) || 0) + oldHeight / 2;
-
         annotationData.width = newWidth;
         annotationData.height = newHeight;
-        annotationData.x = Math.max(0, centerX - newWidth / 2);
-        annotationData.y = Math.max(0, centerY - newHeight / 2);
     }
 
     function showTextboxEditor(pageNumber, annotationData) {
@@ -2019,7 +2013,17 @@ function fitTextboxAroundContent(annotationData) {
             annotationData.content = editor.value || '';
             annotationData.size = editorFontSize;
             annotationData.font = editorFontFamily;
+            var _anchorX = editor.offsetLeft / (state.scale || 1);
+            var _anchorY = editor.offsetTop / (state.scale || 1);
+            var _anchorW = editor.offsetWidth / (state.scale || 1);
             fitTextboxAroundContent(annotationData);
+            var _tbLines = (annotationData.content || '').split('\n').length;
+            if (_tbLines === 1) {
+                annotationData.x = _anchorX + (_anchorW - annotationData.width) / 2;
+            } else {
+                annotationData.x = _anchorX;
+            }
+            annotationData.y = _anchorY;
             var scale = state.scale || 1;
             var wrappedH = annotationData.height;
             (function () {
@@ -2035,7 +2039,6 @@ function fitTextboxAroundContent(annotationData) {
                 wrappedH = wrapEl.offsetHeight / scale;
                 if (wrapEl.parentNode) { wrapEl.parentNode.removeChild(wrapEl); }
             })();
-            annotationData.width = (editor.offsetWidth + 2) / scale;
             annotationData.height = Math.max(annotationData.height, editor.offsetHeight / scale, wrappedH);
             redrawOneAnnotation(pageNumber, annotationData.uuid, annotationData);
             logTextboxDebug({
@@ -2236,9 +2239,13 @@ function fitTextboxAroundContent(annotationData) {
                 wrappedHeightUnscaled = wrapEl.offsetHeight / scale;
                 if (wrapEl.parentNode) { wrapEl.parentNode.removeChild(wrapEl); }
             })();
+            var _tbLines2 = content.split('\n').length;
+            var _tbAnchorX = _tbLines2 === 1
+                ? unscaledBoxX + (editor.offsetWidth / scale - measure.width) / 2
+                : unscaledBoxX;
             var annotation = {
                 type: 'textbox',
-                x: unscaledBoxX,
+                x: _tbAnchorX,
                 y: unscaledBoxY,
                 width: editor.offsetWidth / scale,
                 height: Math.max(measure.height, editor.offsetHeight / scale, wrappedHeightUnscaled),
