@@ -2356,7 +2356,6 @@ function fitTextboxAroundContent(annotationData) {
             labelEl.setAttribute('data-annotation-id', String(annotation.uuid || ''));
             labelEl.style.position = 'absolute';
             labelEl.style.color = annotation.color || '#1f2937';
-            labelEl.style.webkitTextFillColor = annotation.color || '#1f2937';
             labelEl.style.pointerEvents = 'none';
             labelEl.style.whiteSpace = 'pre-wrap';
             labelEl.style.wordBreak = 'break-word';
