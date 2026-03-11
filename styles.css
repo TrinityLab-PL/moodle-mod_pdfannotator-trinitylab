@@ -1956,8 +1956,29 @@ body.tl-pdf-fullscreen svg.annotationLayer {
     z-index: 4;
 }
 
+/* DevTools: tlInspectMode(1) w konsoli – potem "Select element" trafia w .tl-textbox-label itd. Wyłącz: tlInspectMode(0). */
+body.tl-inspect-mode #viewer,
+body.tl-inspect-mode #viewer .page,
+body.tl-inspect-mode #viewer .tl-pdf-canvas,
+body.tl-inspect-mode #viewer .tl-konva-host {
+    opacity: 1 !important;
+    filter: none !important;
+}
+body.tl-inspect-mode #viewer .tl-konva-host,
+body.tl-inspect-mode #viewer .tl-pdf-canvas {
+    pointer-events: none !important;
+}
+body.tl-inspect-mode #viewer .tl-textbox-label,
+body.tl-inspect-mode #viewer .tl-inline-text-editor {
+    pointer-events: auto !important;
+}
+
 body.tl-pdf-fullscreen #viewer .tl-konva-host {
     z-index: 1000000000 !important;
+}
+body.tl-pdf-fullscreen #viewer .tl-textbox-label,
+body.tl-pdf-fullscreen #viewer .tl-inline-text-editor {
+    z-index: 1000000001 !important;
 }
 
 body.tl-pdf-fullscreen .tl-delete-annotation {
@@ -2382,11 +2403,14 @@ body.tl-pdf-fullscreen .path-mod-pdfannotator .tl-save-textbox {
 }
 
 
-/* Fullscreen: force dark text for inline editor and textbox label */
-body.tl-pdf-fullscreen .tl-inline-text-editor,
-body.tl-pdf-fullscreen .tl-textbox-label {
+/* Fullscreen: inline editor fixed dark; label uses var(--tl-label-color) set per-element in JS */
+body.tl-pdf-fullscreen .tl-inline-text-editor {
     color: #111827 !important;
     -webkit-text-fill-color: #111827 !important;
+}
+body.tl-pdf-fullscreen .tl-textbox-label {
+    color: var(--tl-label-color, #1f2937) !important;
+    -webkit-text-fill-color: var(--tl-label-color, #1f2937) !important;
 }
 
 .tl-inline-text-editor::selection {

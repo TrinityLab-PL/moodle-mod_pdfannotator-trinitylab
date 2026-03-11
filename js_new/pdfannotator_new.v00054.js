@@ -406,6 +406,7 @@
                 });
             });
             document.body.classList.add('tl-pdf-fullscreen');
+            setTimeout(logBug8Fullscreen, 1500);
             theaterState.enabled = true;
             return;
         }
@@ -1784,6 +1785,35 @@
         }
     }
 
+    function logBug8Fullscreen() {
+        try {
+            var labels = document.querySelectorAll('.tl-textbox-label');
+            var editors = document.querySelectorAll('.tl-inline-text-editor');
+            var elements = [];
+            labels.forEach(function (el) {
+                var c = window.getComputedStyle(el);
+                elements.push({ tag: el.tagName, class: 'tl-textbox-label', color: c.color, webkitTextFillColor: c.webkitTextFillColor || c.getPropertyValue('-webkit-text-fill-color') });
+            });
+            editors.forEach(function (el) {
+                var c = window.getComputedStyle(el);
+                elements.push({ tag: el.tagName, class: 'tl-inline-text-editor', color: c.color, webkitTextFillColor: c.webkitTextFillColor || c.getPropertyValue('-webkit-text-fill-color') });
+            });
+            var url = ((window.M && M.cfg && M.cfg.wwwroot) ? M.cfg.wwwroot : '') + '/mod/pdfannotator/bug8_fullscreen_log.php';
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', url, true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.send(JSON.stringify({ fullscreen: document.body.classList.contains('tl-pdf-fullscreen'), elements: elements }));
+        } catch (e) {
+        }
+    }
+    if (typeof window !== 'undefined') { window.logBug8Fullscreen = logBug8Fullscreen; }
+    if (typeof window !== 'undefined') {
+        window.tlInspectMode = function(on) {
+            document.body.classList.toggle('tl-inspect-mode', !!on);
+            console.log('TL Inspect mode: ' + (on ? 'ON – możesz zaznaczać elementy pod PDF (np. .tl-textbox-label). Wyłącz: tlInspectMode(0)' : 'OFF'));
+        };
+    }
+
     function computeWrappedLineCount(pageElement, text, widthPx, paddingX, paddingY, fontSizePx, fontFamily) {
         try {
             if (!pageElement) { return 1; }
@@ -2355,8 +2385,10 @@ function fitTextboxAroundContent(annotationData) {
             labelEl.className = 'tl-textbox-label';
             labelEl.setAttribute('data-annotation-id', String(annotation.uuid || ''));
             labelEl.style.position = 'absolute';
-            labelEl.style.color = annotation.color || '#1f2937';
-            labelEl.style.webkitTextFillColor = annotation.color || '#1f2937';
+            var _labelColor = annotation.color || '#1f2937';
+            labelEl.style.setProperty('--tl-label-color', _labelColor, 'important');
+            labelEl.style.setProperty('color', _labelColor, 'important');
+            labelEl.style.setProperty('-webkit-text-fill-color', _labelColor, 'important');
             labelEl.style.pointerEvents = 'none';
             labelEl.style.whiteSpace = 'pre-wrap';
             labelEl.style.wordBreak = 'break-word';
