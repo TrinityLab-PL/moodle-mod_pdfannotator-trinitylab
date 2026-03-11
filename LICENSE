@@ -1,0 +1,60 @@
+================================================================================
+PDF Annotator (mod/pdfannotator) - Third-party components and attributions
+================================================================================
+
+This file documents external code and libraries used in this plugin, with
+accurate attribution and license information. The rest of the plugin is
+governed by the project's own license (see Moodle and plugin documentation).
+
+--------------------------------------------------------------------------------
+1. lazy-brush (brush stabilization / drawing smoothing)
+--------------------------------------------------------------------------------
+
+  Component name:  lazy-brush
+  Author:           Jan Hug (GitHub: dulnan)
+  Repository:      https://github.com/dulnan/lazy-brush
+  Package (npm):   https://www.npmjs.com/package/lazy-brush
+  License:         MIT License
+  Version used:    2.0.2
+
+  File included in this plugin:
+    mod/pdfannotator/lib/lazy-brush/lazy-brush.umd.cjs
+
+  Source of the file (unchanged, official UMD build from the package):
+    https://unpkg.com/lazy-brush@2.0.2/lib/lazy-brush.umd.cjs
+
+  Purpose:
+    Smooth drawing with mouse, finger or other pointing device (brush
+    stabilization). It is used in the Drawing tool to reduce hand tremor
+    and produce smoother strokes. The library is loaded in locallib.php
+    and integrated in js_new/pdfannotator_new.js (and versioned copies).
+
+  What was taken:
+    Only the single file lazy-brush.umd.cjs from the above URL. No other
+    files or code snippets from the lazy-brush repository were copied.
+    The integration code in pdfannotator_new.js (calls to LazyBrush
+    constructor, update(), getBrushCoordinates()) was written for this
+    project and is not from the lazy-brush repo.
+
+  MIT License text for lazy-brush (copyright Jan Hug):
+    Permission is hereby granted, free of charge, to any person obtaining
+    a copy of this software and associated documentation files (the
+    "Software"), to deal in the Software without restriction, including
+    without limitation the rights to use, copy, modify, merge, publish,
+    distribute, sublicense, and/or sell copies of the Software, and to
+    permit persons to whom the Software is furnished to do so, subject to
+    the following conditions: The above copyright notice and this permission
+    notice shall be included in all copies or substantial portions of the
+    Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+    KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+    OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+    BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+    ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+--------------------------------------------------------------------------------
+End of third-party attributions. Add new entries above when new components
+are included.
+================================================================================
