@@ -2469,7 +2469,7 @@ function fitTextboxAroundContent(annotationData) {
             group.add(new Konva.Circle({
                 x: annotation.x * scale,
                 y: annotation.y * scale,
-                radius: 8,
+                radius: 10.4,
                 fill: '#ef4444',
                 stroke: '#ffffff',
                 strokeWidth: 2

@@ -723,6 +723,7 @@ body {
     border-width: 0px 1px 1px 1px;
     border-style: solid;
     border-color: #8f959e;
+    font-size: 0.875em !important;
 }
 .path-mod-pdfannotator div.row {
     margin-left: 0;
@@ -843,11 +844,13 @@ body {
 .path-mod-pdfannotator .chat-message-text {
     display: inline-block;
     width: 100%;
-    font-size: 14px;
+    font-size: 0.875em !important;
 }
 
-.path-mod-pdfannotator :not(.questioncomment) > .chat-message-text p {
+.path-mod-pdfannotator :not(.questioncomment) > .chat-message-text p,
+.path-mod-pdfannotator #comment-wrapper .chat-message-text p {
     margin-bottom: 0;
+    font-size: 0.875em !important;
 }
 
 .path-mod-pdfannotator .chat-message .dropdown {
@@ -962,7 +965,7 @@ body {
 .path-mod-pdfannotator #comment-wrapper .editor_atto_content {
     width: 100%;
     min-height: 10em !important;
-    font-size: 14px;
+    font-size: 0.875em !important;
 }
 
 .path-mod-pdfannotator .cursor-area * {
@@ -1629,7 +1632,7 @@ body.tl-pdf-fullscreen input[type="text"]:not([class]):not([id]) {
     background: white !important;
     border: 2px solid #007bff !important;
     padding: 5px !important;
-    font-size: 14px !important;
+    font-size: 0.875em !important;
     opacity: 1 !important;
 }
 
@@ -2163,6 +2166,14 @@ body.tl-pdf-fullscreen .path-mod-pdfannotator .tl-save-textbox {
     padding: 8px 10px;
     resize: vertical;
     background: #fff;
+}
+
+.path-mod-pdfannotator #comment-wrapper textarea,
+.path-mod-pdfannotator .tl-comment-input {
+    margin: 0;
+    font-family: inherit;
+    font-size: 1.2em;
+    line-height: inherit;
 }
 
 .tl-comment-composer-actions {
