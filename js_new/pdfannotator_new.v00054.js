@@ -557,7 +557,7 @@
                 tip.style.cssText = 'display:none;position:fixed;z-index:1000010;background:#333;color:#e6e6e6;padding:6px 10px;border-radius:4px;white-space:normal;pointer-events:none;font-family:"Open Sans",Arial,sans-serif;';
                 document.body.appendChild(tip);
                 var showTipTimer;
-                var DRAWING_TOOLTIP_DELAY = 700;
+                var DRAWING_TOOLTIP_DELAY = 570;
                 drawingBtn.addEventListener('mouseenter', function (e) {
                     showTipTimer = setTimeout(function () {
                         showTipTimer = null;
@@ -581,7 +581,7 @@
             sharedTip.style.cssText = 'display:none;position:fixed;z-index:1000010;background:#333;color:#e6e6e6;padding:6px 10px;border-radius:4px;white-space:normal;pointer-events:none;font-family:"Open Sans",Arial,sans-serif;';
             document.body.appendChild(sharedTip);
             var showTimer;
-            var TOOLTIP_DELAY = 700;
+            var TOOLTIP_DELAY = 570;
             shell.querySelectorAll('[title]').forEach(function (el) {
                 if (!el.getAttribute('title') || el.getAttribute('title') === '') return;
                 if (el.getAttribute('data-proxy-tool') === 'drawing') return;
@@ -2466,14 +2466,44 @@ function fitTextboxAroundContent(annotationData) {
 
         var scale = state.scale;
         if (annotation.type === 'point') {
-            group.add(new Konva.Circle({
+            var pinH = 22;
+            var pinUnitsH = 4222;
+            var pathScale = (pinH / pinUnitsH) * scale;
+            var pinGroup = new Konva.Group({
                 x: annotation.x * scale,
                 y: annotation.y * scale,
-                radius: 10.4,
-                fill: '#ef4444',
-                stroke: '#ffffff',
-                strokeWidth: 2
+                offsetX: 0,
+                offsetY: 0,
+                scaleX: pathScale,
+                scaleY: pathScale
+            });
+            pinGroup.add(new Konva.Path({
+                x: 0,
+                y: 0,
+                data: 'M 1445,-2779 C 1445,-2526 1380,-2279 1252,-2059 1125,-1838 0,0 0,0 C 0,0 -1119,-1838 -1246,-2059 -1373,-2279 -1439,-2526 -1439,-2779 C -1439,-3033 -1372,-3281 -1246,-3501 -1119,-3722 -938,-3904 -718,-4031 -498,-4158 -250,-4222 4,-4222 C 257,-4222 504,-4156 724,-4030 945,-3903 1125,-3721 1248,-3500 1374,-3280 1441,-3033 1445,-2781 L 1445,-2779 Z',
+                fill: 'rgb(114,159,207)',
+                listening: false
             }));
+            pinGroup.add(new Konva.Circle({
+                x: 4,
+                y: -2878,
+                radius: 525,
+                fill: 'rgb(247,205,0)',
+                listening: false
+            }));
+            var marginUnits = 4 / pathScale;
+            var halfWidth = 1500 + marginUnits;
+            var extraTop = 0.12 * pinUnitsH;
+            var extraBottom = marginUnits;
+            pinGroup.add(new Konva.Rect({
+                x: -halfWidth,
+                y: -pinUnitsH - extraTop,
+                width: halfWidth * 2,
+                height: pinUnitsH + extraTop + extraBottom,
+                fill: 'transparent',
+                listening: true
+            }));
+            group.add(pinGroup);
         } else if (annotation.type === 'area') {
             group.add(new Konva.Rect({
                 x: annotation.x * scale,
