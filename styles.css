@@ -1895,7 +1895,7 @@ body.tl-pdf-fullscreen #comment-wrapper {
     overflow-y: auto !important;
     overflow-x: hidden !important;
     background: white !important;
-    z-index: 999998 !important;
+    z-index: 1000002 !important;
 }
 
 /* CC button - hide comments section */
@@ -1928,6 +1928,7 @@ body.tl-pdf-fullscreen #content-wrapper::-webkit-scrollbar {
 /* Fix PDF height for zoom 133% */
 body.tl-pdf-fullscreen #content-wrapper {
     height: calc(100vh - 60px) !important;
+    padding-right: 29em !important;
 }
 
 /* Zoom-specific padding adjustments */

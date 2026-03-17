@@ -465,6 +465,7 @@
                 });
             });
             document.body.classList.add('tl-pdf-fullscreen');
+            ensureCommentPanelVisible();
             setTimeout(logBug8Fullscreen, 1500);
             theaterState.enabled = true;
             var btnOn = document.querySelector('[data-proxy-action="fullscreen"]');
