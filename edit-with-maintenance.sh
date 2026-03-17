@@ -17,25 +17,35 @@ cleanup_on_exit() {
 trap cleanup_on_exit EXIT
 
 BACKUP_INDEX="/root/trinity_lab_backup/v100_full_snapshot_pdfannotator_20260309_071509/mod/shared/index.js"
-PROTECTED="mod/pdfannotator/shared/index.js"
+PROTECTED_FILES=(
+  "mod/pdfannotator/shared/index.js"
+  "mod/pdfannotator/styles.css"
+  "mod/pdfannotator/js_new/pdfannotator_new.v00054.js"
+  "mod/pdfannotator/templates/index.mustache"
+  "mod/pdfannotator/fullscreen_enhanced.js"
+)
 
 lock_file() {
-  chmod 444 "$MOODLE_ROOT/$PROTECTED"
+  for f in "${PROTECTED_FILES[@]}"; do
+    [ -f "$MOODLE_ROOT/$f" ] && chmod 444 "$MOODLE_ROOT/$f"
+  done
 }
 
 unlock_file() {
-  chmod 644 "$MOODLE_ROOT/$PROTECTED"
+  for f in "${PROTECTED_FILES[@]}"; do
+    [ -f "$MOODLE_ROOT/$f" ] && chmod 644 "$MOODLE_ROOT/$f"
+  done
 }
 
 do_restore() {
   php admin/cli/maintenance.php --enable
   MAINTENANCE_ENABLED=1
   unlock_file
-  cp -f "$BACKUP_INDEX" "$MOODLE_ROOT/$PROTECTED"
+  cp -f "$BACKUP_INDEX" "$MOODLE_ROOT/mod/pdfannotator/shared/index.js"
   php admin/cli/purge_caches.php
   php admin/cli/maintenance.php --disable
   lock_file
-  grep -n "calcDelta" "$PROTECTED" | head -3
+  grep -n "calcDelta" "$MOODLE_ROOT/mod/pdfannotator/shared/index.js" | head -3
 }
 
 do_cmd() {
@@ -52,11 +62,11 @@ do_cmd() {
 case "${1:-}" in
   --lock)
     lock_file
-    echo "Zablokowano zapis: $PROTECTED (444)"
+    echo "Zablokowano zapis (444): ${PROTECTED_FILES[*]}"
     ;;
   --unlock)
     unlock_file
-    echo "Odblokowano zapis: $PROTECTED (644) – pamiętaj o maintenance przy edycji"
+    echo "Odblokowano zapis (644) – pamiętaj o maintenance przy edycji"
     ;;
   --restore)
     do_restore

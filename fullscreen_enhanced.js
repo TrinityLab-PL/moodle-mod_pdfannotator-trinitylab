@@ -17,7 +17,7 @@
         if (window.tlToggleTheaterMode && btn) {
             window.tlToggleTheaterMode();
             document.body.classList.remove('pdfannotator-default-fullscreen');
-            btn.innerHTML = '<i class="fa fa-compress" style="font-size:22px;"></i>';
+            btn.innerHTML = '<svg viewBox="0 0 2300 2300" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke="rgb(59,62,62)" stroke-width="200" stroke-linecap="round" stroke-linejoin="round" d="M 825,826 L 825,126 M 125,826 L 825,826 M 825,1474 L 825,2174 M 125,1474 L 825,1474 M 1476,826 L 1476,126 M 2176,826 L 1476,826 M 1476,1474 L 1476,2174 M 2176,1474 L 1476,1474"/></svg>';
         } else {
             setTimeout(tryAutoTheater, 200);
         }
@@ -43,11 +43,11 @@
         if (!btn) return;
         var iconStyle = 'font-size:22px;line-height:0;display:block;';
         if (inFullscreen) {
-            btn.innerHTML = "<i class=\"fa fa-compress\" style=\"" + iconStyle + "\"></i>";
+            btn.innerHTML = "<svg viewBox=\"0 0 2300 2300\" width=\"28\" height=\"28\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path stroke=\"rgb(59,62,62)\" stroke-width=\"200\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M 825,826 L 825,126 M 125,826 L 825,826 M 825,1474 L 825,2174 M 125,1474 L 825,1474 M 1476,826 L 1476,126 M 2176,826 L 1476,826 M 1476,1474 L 1476,2174 M 2176,1474 L 1476,1474\"/></svg>";
             if (btn.setAttribute) { btn.setAttribute('data-tooltip-text', 'Exit full screen (ESC)'); btn.setAttribute('aria-label', 'Exit full screen (ESC)'); }
             btn.title = '';
         } else {
-            btn.innerHTML = "<i class=\"fa fa-expand\" style=\"" + iconStyle + "\"></i>";
+            btn.innerHTML = "<svg viewBox=\"0 0 2300 2300\" width=\"28\" height=\"28\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path stroke=\"rgb(59,62,62)\" stroke-width=\"200\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M 125,126 L 125,826 M 825,126 L 125,126 M 125,2174 L 125,1474 M 825,2174 L 125,2174 M 2176,126 L 2176,826 M 1476,126 L 2176,126 M 2176,2174 L 2176,1474 M 1476,2174 L 2176,2174\"/></svg>";
             if (btn.setAttribute) { btn.setAttribute('data-tooltip-text', 'Full screen (ESC to exit)'); btn.setAttribute('aria-label', 'Full screen (ESC to exit)'); }
             btn.title = '';
         }
@@ -142,7 +142,7 @@
                 fullscreenBtn = document.createElement("button");
                 fullscreenBtn.id = "tl-fullscreen-btn";
                 fullscreenBtn.className = "btn btn-secondary";
-                fullscreenBtn.innerHTML = "<i class=\"fa fa-expand\" style=\"font-size:22px;\"></i>";
+                fullscreenBtn.innerHTML = "<svg viewBox=\"0 0 2300 2300\" width=\"28\" height=\"28\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path stroke=\"rgb(59,62,62)\" stroke-width=\"200\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M 125,126 L 125,826 M 825,126 L 125,126 M 125,2174 L 125,1474 M 825,2174 L 125,2174 M 2176,126 L 2176,826 M 1476,126 L 2176,126 M 2176,2174 L 2176,1474 M 1476,2174 L 2176,2174\"/></svg>";
                 fullscreenBtn.setAttribute('data-tooltip-text', 'Full screen (ESC to exit)'); fullscreenBtn.title = '';
                 fullscreenBtn.style.marginLeft = "5em";
                 fullscreenBtn.style.minWidth = "42px";
@@ -155,7 +155,7 @@
             }
         }
         fullscreenBtn.id = 'tl-fullscreen-btn';
-        fullscreenBtn.innerHTML = "<i class=\"fa fa-expand\" style=\"font-size:22px;\"></i>";
+        fullscreenBtn.innerHTML = "<svg viewBox=\"0 0 2300 2300\" width=\"28\" height=\"28\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path stroke=\"rgb(59,62,62)\" stroke-width=\"200\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M 125,126 L 125,826 M 825,126 L 125,126 M 125,2174 L 125,1474 M 825,2174 L 125,2174 M 2176,126 L 2176,826 M 1476,126 L 2176,126 M 2176,2174 L 2176,1474 M 1476,2174 L 2176,2174\"/></svg>";
         fullscreenBtn.setAttribute('data-tooltip-text', 'Full screen (ESC to exit)'); fullscreenBtn.title = '';
         fullscreenBtn.style.marginLeft = "5em";
         fullscreenBtn.style.minWidth = "42px";
@@ -165,11 +165,11 @@
             var fsBtn = document.querySelector('#tl-fullscreen-btn');
             if (!fsBtn) return;
             if (inFullscreen) {
-                fsBtn.innerHTML = "<i class=\"fa fa-compress\" style=\"font-size:22px;\"></i>";
+                fsBtn.innerHTML = "<svg viewBox=\"0 0 2300 2300\" width=\"28\" height=\"28\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path stroke=\"rgb(59,62,62)\" stroke-width=\"200\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M 825,826 L 825,126 M 125,826 L 825,826 M 825,1474 L 825,2174 M 125,1474 L 825,1474 M 1476,826 L 1476,126 M 2176,826 L 1476,826 M 1476,1474 L 1476,2174 M 2176,1474 L 1476,1474\"/></svg>";
                 if (fsBtn.setAttribute) { fsBtn.setAttribute('data-tooltip-text', 'Exit full screen (ESC)'); fsBtn.setAttribute('aria-label', 'Exit full screen (ESC)'); }
                 fsBtn.title = '';
             } else {
-                fsBtn.innerHTML = "<i class=\"fa fa-expand\" style=\"font-size:22px;\"></i>";
+                fsBtn.innerHTML = "<svg viewBox=\"0 0 2300 2300\" width=\"28\" height=\"28\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path stroke=\"rgb(59,62,62)\" stroke-width=\"200\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M 125,126 L 125,826 M 825,126 L 125,126 M 125,2174 L 125,1474 M 825,2174 L 125,2174 M 2176,126 L 2176,826 M 1476,126 L 2176,126 M 2176,2174 L 2176,1474 M 1476,2174 L 2176,2174\"/></svg>";
                 if (fsBtn.setAttribute) { fsBtn.setAttribute('data-tooltip-text', 'Full screen (ESC to exit)'); fsBtn.setAttribute('aria-label', 'Full screen (ESC to exit)'); }
                 fsBtn.title = '';
             }

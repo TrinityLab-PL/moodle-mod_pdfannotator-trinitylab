@@ -425,8 +425,10 @@
         wrapper.style.display = 'block';
         var toggleIcon = document.querySelector('[data-proxy-action="toggle-comments"] i');
         if (toggleIcon) toggleIcon.className = 'fa fa-comments';
+        var toggleLabel = document.querySelector('[data-proxy-action="toggle-comments"] .tl-comments-label');
+        if (toggleLabel) toggleLabel.textContent = 'Close';
         var btn = document.getElementById('tl-toggle-comments');
-        if (btn) btn.innerHTML = '<i class="fa fa-chevron-right"></i> Close comments';
+        if (btn) btn.innerHTML = '<i class="fa fa-chevron-right"></i> Close';
     }
 
     var theaterState = {
@@ -459,7 +461,7 @@
             setTimeout(logBug8Fullscreen, 1500);
             theaterState.enabled = true;
             var btnOn = document.querySelector('[data-proxy-action="fullscreen"]');
-            if (btnOn) { btnOn.innerHTML = '<i class="fa fa-compress" style="font-size:22px;"></i>'; }
+            if (btnOn) { btnOn.innerHTML = '<svg viewBox="0 0 2300 2300" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke="rgb(59,62,62)" stroke-width="200" stroke-linecap="round" stroke-linejoin="round" d="M 825,826 L 825,126 M 125,826 L 825,826 M 825,1474 L 825,2174 M 125,1474 L 825,1474 M 1476,826 L 1476,126 M 2176,826 L 1476,826 M 1476,1474 L 1476,2174 M 2176,1474 L 1476,1474"/></svg>'; }
             return;
         }
         theaterState.hiddenElements.forEach(function (entry) {
@@ -469,7 +471,7 @@
         document.body.classList.remove('tl-pdf-fullscreen');
         theaterState.enabled = false;
         var btnOff = document.querySelector('[data-proxy-action="fullscreen"]');
-        if (btnOff) { btnOff.innerHTML = '<i class="fa fa-expand" style="font-size:22px;"></i>'; }
+        if (btnOff) { btnOff.innerHTML = '<svg viewBox="0 0 2300 2300" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke="rgb(59,62,62)" stroke-width="200" stroke-linecap="round" stroke-linejoin="round" d="M 125,126 L 125,826 M 825,126 L 125,126 M 125,2174 L 125,1474 M 825,2174 L 125,2174 M 2176,126 L 2176,826 M 1476,126 L 2176,126 M 2176,2174 L 2176,1474 M 1476,2174 L 2176,2174"/></svg>'; }
     }
     window.tlToggleTheaterMode = toggleTheaterMode;
 
@@ -596,8 +598,8 @@
             '<span class="tl-page-counter" data-proxy-action="page-counter">1 / 1</span>',
             '</div>',
             '<div class="tl-group tl-misc">',
-            '<button type="button" data-proxy-action="toggle-comments" title="Comments"><i class="fa fa-comments-o"></i></button>',
-            '<button type="button" data-proxy-action="fullscreen" title="Full screen (ESC to exit)"><i class="fa fa-expand"></i></button>',
+            '<button type="button" data-proxy-action="toggle-comments" title="Comments" style="font-family: \'Open Sans\', Arial, sans-serif; font-weight: 300; display: inline-flex; align-items: center; gap: 6px;"><i class="fa fa-comments-o"></i><span class="tl-comments-label">Open</span></button>',
+            '<button type="button" data-proxy-action="fullscreen" title="Full screen (ESC to exit)"><svg viewBox="0 0 2300 2300" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke="rgb(59,62,62)" stroke-width="200" stroke-linecap="round" stroke-linejoin="round" d="M 125,126 L 125,826 M 825,126 L 125,126 M 125,2174 L 125,1474 M 825,2174 L 125,2174 M 2176,126 L 2176,826 M 1476,126 L 2176,126 M 2176,2174 L 2176,1474 M 1476,2174 L 2176,2174"/></svg></button>',
             '</div>'
         ].join('');
         container.appendChild(shell);
@@ -742,14 +744,17 @@
                 return;
             }
             var toggleIcon = shell.querySelector('[data-proxy-action="toggle-comments"] i');
+            var toggleLabel = shell.querySelector('[data-proxy-action="toggle-comments"] .tl-comments-label');
             if (wrapper.classList.contains('tl-comments-hidden')) {
                 wrapper.classList.remove('tl-comments-hidden');
                 wrapper.style.display = 'block';
                 if (toggleIcon) toggleIcon.className = 'fa fa-comments';
+                if (toggleLabel) toggleLabel.textContent = 'Close';
             } else {
                 wrapper.classList.add('tl-comments-hidden');
                 wrapper.style.display = 'none';
                 if (toggleIcon) toggleIcon.className = 'fa fa-comments-o';
+                if (toggleLabel) toggleLabel.textContent = 'Open';
             }
         });
     }
@@ -795,12 +800,12 @@
         chain.then(function () {
             var viewer = viewerEl();
             var targetPage = Math.max(1, Math.min(state.pdf.numPages, parseInt(state.initialPage || 1, 10) || 1));
-            if (viewer && viewer.scrollTop <= 80) {
-                scrollToPage(targetPage);
-            }
             if (viewer && state.savedScrollTop != null) {
                 viewer.scrollTop = Math.max(0, Math.min(state.savedScrollTop, viewer.scrollHeight - viewer.clientHeight));
                 state.savedScrollTop = null;
+            } else if (viewer && viewer.scrollTop <= 80 && targetPage > 1) {
+                var page = viewer.querySelector('.page[data-page-number="' + targetPage + '"]');
+                if (page) { viewer.scrollTop = page.offsetTop; }
             }
             requestAnimationFrame(function () {
                 setTimeout(function () { startAnnotationWarmup(); }, 150);
@@ -808,6 +813,28 @@
         }).catch(function (error) {
             console.error('Render chain failed', error);
         });
+        // Early scroll: apply after target page renders, don't wait for all pages
+        (function () {
+            var targetPage = Math.max(1, Math.min(state.pdf.numPages, parseInt(state.initialPage || 1, 10) || 1));
+            if (targetPage <= 1 && state.savedScrollTop == null) { return; }
+            var savedTop = state.savedScrollTop;
+            var attempts = 0;
+            var timer = setInterval(function () {
+                attempts++;
+                var viewer = viewerEl();
+                var page = viewer && viewer.querySelector('.page[data-page-number="' + targetPage + '"]');
+                if (page) {
+                    clearInterval(timer);
+                    if (savedTop != null) {
+                        viewer.scrollTop = Math.max(0, savedTop);
+                        state.savedScrollTop = null;
+                    } else {
+                        viewer.scrollTop = page.offsetTop;
+                    }
+                }
+                if (attempts > 40) { clearInterval(timer); }
+            }, 80);
+        })();
     }
 
     function startAnnotationWarmup() {
@@ -1707,6 +1734,54 @@
             ensureRestoreControls();
         });
         state.commentNavObserver.observe(nav, { childList: true, subtree: true });
+    }
+
+    function ensureToggleAllComments() {
+        var btn = document.getElementById("toggleAllCommentsList");
+        if (!btn || btn.dataset.bound === "1") return;
+        btn.dataset.bound = "1";
+        var icon = btn.querySelector("i");
+        var showAll = false;
+        btn.addEventListener("click", function () {
+            showAll = !showAll;
+            if (icon) icon.className = showAll ? "icon fa fa-comment fa-fw" : "icon fa fa-comment-o fa-fw";
+            btn.title = showAll ? "Hide all comments" : "Show all comments";
+            var list = document.querySelector("#comment-wrapper .comment-list-container");
+            var title = document.querySelector("#comment-wrapper > h4");
+            if (!list) return;
+            if (showAll) {
+                ajax("getQuestions", { page_Number: -1 }).then(function (data) {
+                    if (title) title.textContent = (data.pdfannotatorname || "") ? "All questions " + data.pdfannotatorname : "All questions";
+                    list.innerHTML = "";
+                    var qs = data.questions || {};
+                    var flat = [];
+                    for (var pg in qs) { (qs[pg] || []).forEach(function (q) { q.page = pg; flat.push(q); }); }
+                    if (flat.length === 0) { list.innerHTML = "<div class=tl-comment-empty>Brak pytan.</div>"; return; }
+                    flat.forEach(function (q) {
+                        var div = document.createElement("div");
+                        div.className = "chat-message comment-list-item questions";
+                        div.innerHTML = "<span class=more>" + escapeHtml(q.content || "") + "</span>";
+                        div.onclick = function () { var el = document.getElementById("pageContainer" + q.page); if (el) document.getElementById("content-wrapper").scrollTop = el.offsetTop; };
+                        list.appendChild(div);
+                    });
+                });
+            } else {
+                var p = document.getElementById("currentPage");
+                var pg = (p && p.value) ? p.value : 1;
+                ajax("getQuestions", { page_Number: pg }).then(function (questions) {
+                    if (title) title.textContent = "Questions on page " + pg;
+                    list.innerHTML = "";
+                    var arr = Array.isArray(questions) ? questions : [];
+                    if (arr.length === 0) { list.innerHTML = "<div class=tl-comment-empty>Brak pytan.</div>"; return; }
+                    arr.forEach(function (q) {
+                        var div = document.createElement("div");
+                        div.className = "chat-message comment-list-item questions";
+                        div.innerHTML = "<span class=more>" + escapeHtml(q.content || "") + "</span>";
+                        list.appendChild(div);
+                    });
+                });
+            }
+        });
     }
 
     function ensureRestoreControls() {
@@ -3310,9 +3385,11 @@ function fitTextboxAroundContent(annotationData) {
         bindViewerScroll();
         buildShoelaceToolbar();
         observeCommentNav();
+        ensureToggleAllComments();
         ensureRestoreControls();
         setTimeout(ensureRestoreControls, 400);
         setTimeout(ensureRestoreControls, 1200);
+        setTimeout(ensureToggleAllComments, 400);
         initKeyboardShortcuts();
         setTool('cursor');
         bindVisibilityRecovery();

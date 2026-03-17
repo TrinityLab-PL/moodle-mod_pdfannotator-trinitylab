@@ -2557,9 +2557,8 @@ body:not(.tl-pdf-fullscreen) #viewer {
     margin-top: 0 !important;
 }
 
-/* TL_COMMENT_PANEL_CLEANUP_AND_RESTORE */
-#comment-wrapper .comment-visibility,
-#comment-wrapper #searchButton {
+/* TL_COMMENT_PANEL_CLEANUP_AND_RESTORE - only hide old visibility filters; Search and Restore stay visible */
+#comment-wrapper .comment-visibility {
     display: none !important;
 }
 
@@ -2743,4 +2742,8 @@ body:not(.tl-pdf-fullscreen) #comment-wrapper {
     overflow-x: hidden !important;
     z-index: 200 !important;
     flex: none !important;
+}
+
+.path-mod-pdfannotator #comment-wrapper > h4 {
+    font-weight: 300;
 }
