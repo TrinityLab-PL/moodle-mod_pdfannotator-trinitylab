@@ -38,9 +38,6 @@
         annotationFastWarmupTimer: null,
         commentNavObserver: null,
         commentNavMuting: false,
-        showAllComments: false,
-        searchPattern: '',
-        _lastQuestionsPage: null,
         recoveryTimer: null,
         visibilityRecoveryBound: false,
         initialLoadRetryTimer: null,
@@ -390,10 +387,6 @@
             if (currentPageInput) {
                 currentPageInput.value = String(current);
             }
-            if (current !== state._lastQuestionsPage && !state.commentTarget && !state.showAllComments && typeof refreshQuestionsList === 'function') {
-                state._lastQuestionsPage = current;
-                refreshQuestionsList();
-            }
             updatePageCounter(current);
             updateDeleteButtonPosition();
             if (savePosTimer) clearTimeout(savePosTimer);
@@ -465,7 +458,6 @@
                 });
             });
             document.body.classList.add('tl-pdf-fullscreen');
-            ensureCommentPanelVisible();
             setTimeout(logBug8Fullscreen, 1500);
             theaterState.enabled = true;
             var btnOn = document.querySelector('[data-proxy-action="fullscreen"]');
@@ -1739,198 +1731,9 @@
             if (state.commentNavMuting) {
                 return;
             }
-            ensureCommentNavControls();
             ensureRestoreControls();
         });
         state.commentNavObserver.observe(nav, { childList: true, subtree: true });
-    }
-
-    function ensureCommentNavControls() {
-        var nav = document.getElementById('comment-nav');
-        if (!nav) {
-            return;
-        }
-        var toggleBtn = nav.querySelector('#toggleAllCommentsList');
-        if (!toggleBtn) {
-            toggleBtn = document.createElement('button');
-            toggleBtn.id = 'toggleAllCommentsList';
-            toggleBtn.className = 'btn-link';
-            toggleBtn.title = state.showAllComments ? 'Hide all comments' : 'Show all comments';
-            toggleBtn.innerHTML = '<i class="icon fa fa-comment-o fa-fw"></i>';
-            nav.prepend(toggleBtn);
-        }
-
-        var searchBtn = nav.querySelector('#searchButton');
-        if (!searchBtn) {
-            searchBtn = document.createElement('button');
-            searchBtn.id = 'searchButton';
-            searchBtn.className = 'btn-link';
-            searchBtn.title = 'Search';
-            searchBtn.innerHTML = '<i class="icon fa fa-search fa-fw"></i>';
-            if (toggleBtn.nextSibling) {
-                nav.insertBefore(searchBtn, toggleBtn.nextSibling);
-            } else {
-                nav.appendChild(searchBtn);
-            }
-        }
-
-        toggleBtn.style.display = 'inline-flex';
-        toggleBtn.style.visibility = 'visible';
-        toggleBtn.style.opacity = '1';
-        searchBtn.style.display = 'inline-flex';
-        searchBtn.style.visibility = 'visible';
-        searchBtn.style.opacity = '1';
-
-        var restoreWrap = nav.querySelector('.tl-restore-wrap');
-        if (restoreWrap) {
-            restoreWrap.style.display = 'inline-flex';
-            restoreWrap.style.visibility = 'visible';
-            restoreWrap.style.opacity = '1';
-        }
-
-        var icon = toggleBtn.querySelector('i');
-        if (icon) {
-            icon.className = state.showAllComments ? 'icon fa fa-comment fa-fw' : 'icon fa fa-comment-o fa-fw';
-        }
-        toggleBtn.title = state.showAllComments ? 'Hide all comments' : 'Show all comments';
-    }
-
-    function renderQuestionRows(list, entries) {
-        list.innerHTML = '';
-        if (!Array.isArray(entries) || entries.length === 0) {
-            list.innerHTML = '<div class="tl-comment-empty">No questions.</div>';
-            return;
-        }
-        if (state.searchPattern) {
-            var pat = state.searchPattern.toLowerCase();
-            entries = entries.filter(function (q) {
-                return q && q.content && q.content.toLowerCase().indexOf(pat) !== -1;
-            });
-        }
-
-        entries.forEach(function (q) {
-            var article = document.createElement('article');
-            article.className = 'tl-comment-item tl-question-item';
-            if (q && (q.username || q.timecreated)) {
-                var meta = document.createElement('div');
-                meta.className = 'tl-comment-meta';
-                var qUser = escapeHtml((q && q.username) || '');
-                var qDate = formatPolishTimestamp(q && Number(q.timecreated), '');
-                var metaHtml = '';
-                if (qUser) { metaHtml += '<strong>' + qUser + '</strong>'; }
-                if (qDate) { metaHtml += '<span class="tl-comment-meta-right"><span>' + escapeHtml(qDate) + '</span></span>'; }
-                if (metaHtml) { meta.innerHTML = metaHtml; article.appendChild(meta); }
-            }
-            var body = document.createElement('div');
-            body.className = 'tl-comment-body';
-            body.innerHTML = q && q.content ? q.content : '';
-            article.appendChild(body);
-
-            if (q && q.page) {
-                article.style.cursor = 'pointer';
-                article.addEventListener('click', function () {
-                    var pageNo = String(q.page || '');
-                    var el = viewerEl().querySelector('.page[data-page-number="' + pageNo + '"]');
-                    if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                });
-            }
-
-            list.appendChild(article);
-        });
-    }
-
-    function refreshQuestionsList() {
-        if (state.commentTarget) {
-            return;
-        }
-        var list = document.querySelector('#comment-wrapper .comment-list-container');
-        if (!list) {
-            return;
-        }
-
-        if (state.showAllComments) {
-            ajax('getQuestions', { page_Number: -1 }).then(function (data) {
-                var grouped = (data && data.questions) ? data.questions : {};
-                var flat = [];
-                Object.keys(grouped).forEach(function (pg) {
-                    (grouped[pg] || []).forEach(function (q) {
-                        q.page = q.page || pg;
-                        flat.push(q);
-                    });
-                });
-                renderQuestionRows(list, flat);
-            });
-            return;
-        }
-
-        var p = document.getElementById('currentPage');
-        var pg = (p && p.value) ? p.value : 1;
-        ajax('getQuestions', { page_Number: pg }).then(function (questions) {
-            var arr = Array.isArray(questions) ? questions : [];
-            renderQuestionRows(list, arr);
-        });
-    }
-
-
-    function bindFullscreenCommentNavRecovery() {
-        var recover = function () {
-            setTimeout(function () {
-                ensureCommentNavControls();
-                ensureRestoreControls();
-                ensureToggleAllComments();
-            }, 120);
-        };
-        document.addEventListener('fullscreenchange', recover);
-        document.addEventListener('webkitfullscreenchange', recover);
-        document.addEventListener('mozfullscreenchange', recover);
-        document.addEventListener('MSFullscreenChange', recover);
-    }
-    function bindSearchPanel() {
-        var btn = document.getElementById('searchButton');
-        var form = document.getElementById('searchForm');
-        var input = document.getElementById('searchPattern');
-        var clearBtn = document.getElementById('searchClear');
-        if (!form || !input) { return; }
-        if (form.dataset.bound === '1') { return; }
-        form.dataset.bound = '1';
-        if (btn) {
-            btn.addEventListener('click', function () {
-                input.focus();
-            });
-        }
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            state.searchPattern = input.value.trim();
-            refreshQuestionsList();
-        });
-        if (clearBtn) {
-            clearBtn.addEventListener('click', function () {
-                input.value = '';
-                state.searchPattern = '';
-                refreshQuestionsList();
-            });
-        }
-    }
-
-    function ensureToggleAllComments() {
-        ensureCommentNavControls();
-        var btn = document.getElementById('toggleAllCommentsList');
-        if (!btn || btn.dataset.bound === '1') {
-            return;
-        }
-        btn.dataset.bound = '1';
-        btn.addEventListener('click', function () {
-            state.showAllComments = !state.showAllComments;
-            state._lastQuestionsPage = null;
-            ensureCommentNavControls();
-            refreshQuestionsList();
-        });
-        setTimeout(function () {
-            ensureCommentNavControls();
-            refreshQuestionsList();
-        }, 250);
     }
 
     function ensureRestoreControls() {
@@ -2002,7 +1805,7 @@
         }
         state.commentNavMuting = true;
         if (!state.deletedAnnotations.length) {
-            list.innerHTML = '<div class="tl-restore-empty">No deleted annotations.</div>';
+            list.innerHTML = '<div class="tl-restore-empty">Brak usuniętych adnotacji.</div>';
             setTimeout(function () {
                 state.commentNavMuting = false;
             }, 0);
@@ -2012,7 +1815,7 @@
             var type = escapeHtml((entry.annotation && entry.annotation.type) || 'annotation');
             var page = Number(entry.pageNumber) || 1;
             return '<button type="button" class="tl-restore-item" data-restore-index="' + String(index) + '">'
-                + 'Restore: ' + type + ' (p. ' + String(page) + ')</button>';
+                + 'Przywróć: ' + type + ' (str. ' + String(page) + ')</button>';
         }).join('');
         list.querySelectorAll('.tl-restore-item').forEach(function (button) {
             button.addEventListener('click', function () {
@@ -2121,15 +1924,15 @@
         composer = document.createElement('div');
         composer.className = 'tl-comment-composer';
         composer.innerHTML = [
-            '<textarea class="tl-comment-input" rows="3" placeholder="Select an annotation and type a comment..."></textarea>',
+            '<textarea class="tl-comment-input" rows="3" placeholder="Wybierz adnotację i wpisz komentarz..."></textarea>',
             '<div class="tl-comment-composer-actions">',
-            '<select class="tl-comment-visibility" title="Comment visibility">',
+            '<select class="tl-comment-visibility" title="Widoczność komentarza">',
             '<option value="public">Public</option>',
             '<option value="anonymous">Anonymous</option>',
             '<option value="private">Private</option>',
             '<option value="protected">Protected</option>',
             '</select>',
-            '<button type="button" class="tl-comment-submit">Add comment</button>',
+            '<button type="button" class="tl-comment-submit">Dodaj komentarz</button>',
             '</div>',
             '<div class="tl-comment-composer-hint"></div>'
         ].join('');
@@ -2147,7 +1950,7 @@
             input.disabled = !enabled;
             visibility.disabled = !enabled;
             submit.disabled = !enabled;
-            hint.textContent = enabled ? ('Annotation #' + state.commentTarget.annotationId) : 'First select an annotation, then add a comment.';
+            hint.textContent = enabled ? ('Adnotacja #' + state.commentTarget.annotationId) : 'Najpierw zaznacz adnotację, potem dodaj komentarz.';
         }
 
         submit.addEventListener('click', function () {
@@ -2182,7 +1985,7 @@
                         }
                         var preview = document.createElement('article');
                         preview.className = 'tl-comment-item tl-comment-item--pending';
-                        preview.innerHTML = '<div class="tl-comment-meta"><strong>You</strong><span>Now</span></div>'
+                        preview.innerHTML = '<div class="tl-comment-meta"><strong>Ty</strong><span>Teraz</span></div>'
                             + '<div class="tl-comment-body">' + escapeHtml(submittedContent) + '</div>';
                         list.appendChild(preview);
                     }
@@ -2226,7 +2029,6 @@
         if (composer && composer.syncState) {
             composer.syncState();
         }
-        refreshQuestionsList();
     }
 
     function renderCommentsPanel(commentsPayload) {
@@ -2239,18 +2041,18 @@
             if (list.querySelector('.tl-comment-item--pending')) {
                 return;
             }
-            list.innerHTML = '<div class="tl-comment-empty">No comments for this annotation.</div>';
+            list.innerHTML = '<div class="tl-comment-empty">Brak komentarzy dla tej adnotacji.</div>';
             return;
         }
         list.innerHTML = comments.map(function (item) {
-            var user = escapeHtml(item.username || 'User');
+            var user = escapeHtml(item.username || 'Użytkownik');
             var formattedTime = formatPolishTimestamp(item.timecreatedts, item.timecreated || '');
             var time = escapeHtml(formattedTime || item.timecreated || '');
             var commentId = escapeHtml(item.uuid || item.id || '');
             var body = item.displaycontent || escapeHtml(item.content || item.rawAnsweredquestion || item.answer || '');
             return '<article class="tl-comment-item">'
                 + '<div class="tl-comment-meta"><strong>' + user + '</strong><span class="tl-comment-meta-right"><span>' + time + '</span>'
-                + '<button type="button" class="tl-comment-delete" data-comment-id="' + commentId + '" title="Delete comment"><i class="fa fa-trash"></i></button>'
+                + '<button type="button" class="tl-comment-delete" data-comment-id="' + commentId + '" title="Usuń komentarz"><i class="fa fa-trash"></i></button>'
                 + '</span></div>'
                 + '<div class="tl-comment-body">' + body + '</div>'
                 + '</article>';
@@ -3535,14 +3337,9 @@ function fitTextboxAroundContent(annotationData) {
         bindViewerScroll();
         buildShoelaceToolbar();
         observeCommentNav();
-        ensureCommentNavControls();
-        ensureToggleAllComments();
         ensureRestoreControls();
-        bindFullscreenCommentNavRecovery();
-        bindSearchPanel();
         setTimeout(ensureRestoreControls, 400);
         setTimeout(ensureRestoreControls, 1200);
-        setTimeout(ensureToggleAllComments, 400);
         initKeyboardShortcuts();
         setTool('cursor');
         bindVisibilityRecovery();
