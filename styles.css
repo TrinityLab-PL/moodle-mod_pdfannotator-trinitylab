@@ -705,7 +705,6 @@ body {
     position: relative;
     left: 0;
     right: 0;
-    bottom: 47px;
     overflow: visible;
 }
 .path-mod-pdfannotator #comment-wrapper .comment-list-form {
@@ -1893,7 +1892,7 @@ body.tl-pdf-fullscreen #comment-wrapper {
     width: 28em !important;
     height: calc(100vh - 80px) !important;
     overflow-y: auto !important;
-    overflow-x: hidden !important;
+    overflow-x: visible !important;
     background: white !important;
     z-index: 999998 !important;
 }
@@ -2758,6 +2757,22 @@ body:not(.tl-pdf-fullscreen) #comment-wrapper {
     min-height: 32px;
 }
 
+#comment-wrapper #comment-nav #searchButton {
+    display: none !important;
+}
+
+#comment-wrapper #comment-nav > #searchForm {
+    order: 20 !important;
+    flex: 1 1 100% !important;
+    margin-top: 4px !important;
+    display: flex !important;
+}
+
+#comment-wrapper .tl-restore-wrap {
+    order: 10 !important;
+    margin-left: auto !important;
+}
+
 #comment-wrapper #comment-nav > * {
     flex: 0 0 auto;
 }
@@ -2808,6 +2823,8 @@ body.fullscreenWrapper #comment-wrapper #comment-nav {
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
+    position: relative !important;
+    z-index: 20 !important;
 }
 
 body.tl-pdf-fullscreen #comment-wrapper #toggleAllCommentsList,

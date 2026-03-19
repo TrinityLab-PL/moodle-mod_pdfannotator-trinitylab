@@ -67,7 +67,8 @@
 
 - **Zawsze dwa poziomy backupu:**
   1. **Lokalny snapshot w pluginie** – pełna kopia `mod/pdfannotator` w `mod/pdfannotator/_backups/vXX_opis_TIMESTAMP/…`, wykonana przez `edit-with-maintenance.sh --cmd '...'` (np. `tar` lub `cp` do `_backups`). Ten snapshot musi być widoczny z konta użytkownika (np. `piotrad`).
-  2. **Kopia dla roota** – po utworzeniu lokalnego snapshotu asystent **zawsze** podaje gotowe polecenie bash, które z konta `root` kopiuje **właśnie ten** snapshot z `_backups` do `/root/trinity_lab_backup/` (bez dodatkowej logiki po stronie użytkownika).
+  2. **Kopia dla roota** – po utworzeniu lokalnego snapshotu asystent **zawsze** podaje gotowe polecenie bash, które z konta `root` kopiuje **właśnie ten** snapshot z `_backups` do `/root/trinity_lab_backup/`.
+     - Asystent **nie wykonuje** tej kopii automatycznie — to ma wykonać użytkownik (po prostu skopiujesz/wkleisz podaną komendę).
 - **Asystent nigdy nie robi tylko backupu „na root‑cie” z pominięciem `_backups`.** Zawsze najpierw snapshot w `_backups`, potem bash do skopiowania go na konto `root`.
 
 ### 4.1 Wszystko gotowe – zero kroków ręcznych (MUST)

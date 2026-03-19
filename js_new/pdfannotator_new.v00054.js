@@ -44,7 +44,9 @@
         visibilityRecoveryBound: false,
         initialLoadRetryTimer: null,
         initialLoadRetryCount: 0,
-        bootstrapped: false
+        bootstrapped: false,
+        searchPattern: '',
+        _questionsCache: null
     };
     var cursorCache = {};
     var CURSOR_SIZE = 24;
@@ -756,6 +758,7 @@
                 wrapper.style.display = 'block';
                 if (toggleIcon) toggleIcon.className = 'fa fa-comments';
                 if (toggleLabel) toggleLabel.textContent = 'Close';
+                ensureRestoreControls();
             } else {
                 wrapper.classList.add('tl-comments-hidden');
                 wrapper.style.display = 'none';
@@ -1739,6 +1742,7 @@
             }
             ensureCommentNavControls();
             ensureRestoreControls();
+            ensureSearchFormControls();
         });
         state.commentNavObserver.observe(nav, { childList: true, subtree: true });
     }
@@ -1823,6 +1827,14 @@
         });
     }
 
+    function filterBySearchPattern(arr) {
+        if (!state.searchPattern) { return arr; }
+        return arr.filter(function (q) {
+            var text = String(q.content || '').replace(/<[^>]+>/g, ' ').toLowerCase();
+            return text.indexOf(state.searchPattern) !== -1;
+        });
+    }
+
     function refreshQuestionsList() {
         if (state.commentTarget) {
             return;
@@ -1843,7 +1855,8 @@
                         flat.push(q);
                     });
                 });
-                renderQuestionRows(list, flat);
+                state._questionsCache = flat;
+                renderQuestionRows(list, filterBySearchPattern(flat));
             });
             return;
         }
@@ -1853,7 +1866,8 @@
         ajax('getQuestions', { page_Number: pg }).then(function (questions) {
             if (state.commentTarget) return;
             var arr = Array.isArray(questions) ? questions : [];
-            renderQuestionRows(list, arr);
+            state._questionsCache = arr;
+        renderQuestionRows(list, filterBySearchPattern(arr));
         });
     }
 
@@ -1864,6 +1878,7 @@
                 ensureCommentNavControls();
                 ensureRestoreControls();
                 ensureToggleAllComments();
+                ensureSearchFormControls();
             }, 120);
         };
         document.addEventListener('fullscreenchange', recover);
@@ -1889,6 +1904,45 @@
             ensureCommentNavControls();
             refreshQuestionsList();
         }, 250);
+    }
+
+    function ensureSearchFormControls() {
+        var form = document.getElementById('searchForm');
+        if (!form) { return; }
+        form.style.display = 'flex';
+        if (form.dataset.boundSearch === '1') { return; }
+        form.dataset.boundSearch = '1';
+        var input = document.getElementById('searchPattern');
+        var clearBtn = document.getElementById('searchClear');
+        var debounceTimer = null;
+        function applyFilter() {
+            if (state.commentTarget) { return; }
+            state.searchPattern = (input ? input.value : '').toLowerCase().trim();
+            var list = document.querySelector('#comment-wrapper .comment-list-container');
+            if (!list) { return; }
+            if (state._questionsCache) {
+                renderQuestionRows(list, filterBySearchPattern(state._questionsCache));
+            } else {
+                state._lastQuestionsPage = null;
+                refreshQuestionsList();
+            }
+        }
+        if (input) {
+            input.addEventListener('keyup', function () {
+                if (debounceTimer) { clearTimeout(debounceTimer); }
+                debounceTimer = setTimeout(applyFilter, 200);
+            });
+        }
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                if (input) { input.value = ''; }
+                state.searchPattern = '';
+                if (state.commentTarget) { return; }
+                state._lastQuestionsPage = null;
+                refreshQuestionsList();
+            });
+        }
+        form.addEventListener('submit', function (e) { e.preventDefault(); });
     }
 
     function ensureRestoreControls() {
@@ -3496,6 +3550,7 @@ function fitTextboxAroundContent(annotationData) {
         ensureCommentNavControls();
         ensureToggleAllComments();
         ensureRestoreControls();
+        ensureSearchFormControls();
         bindFullscreenCommentNavRecovery();
         setTimeout(ensureRestoreControls, 400);
         setTimeout(ensureRestoreControls, 1200);
