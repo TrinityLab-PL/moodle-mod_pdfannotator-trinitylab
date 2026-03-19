@@ -652,6 +652,159 @@ class pdfannotator_comment {
      * @param type $documentid
      * @param type $pattern
      */
+    public static function search_all_comments($documentid, $rawquery, $context) {
+        global $DB, $USER;
+        $displayhidden = has_capability('mod/pdfannotator:seehiddencomments', $context);
+
+        // Parse query: "exact phrase" (byte-safe) or token1 token2 (AND).
+        // "" -> empty tokens -> return []. Unclosed quote -> token mode.
+        $rawquery = trim($rawquery);
+        if (substr($rawquery, 0, 1) === '"' && substr($rawquery, -1) === '"' && strlen($rawquery) >= 2) {
+            $phrase = substr($rawquery, 1, strlen($rawquery) - 2);
+            $tokens = $phrase !== '' ? [$phrase] : [];
+        } else {
+            $tokens = preg_split('/\s+/', $rawquery, -1, PREG_SPLIT_NO_EMPTY);
+        }
+        // Min token length 2 (multibyte-aware), max 15 tokens.
+        $tokens = array_filter($tokens, function($t) {
+            return core_text::strlen($t) >= 2;
+        });
+        $tokens = array_slice(array_values($tokens), 0, 15);
+        if (empty($tokens)) {
+            return [];
+        }
+
+        // Use | as escape char. Escape | in input first (|| = literal |).
+        // casesensitive=false: Moodle driver uses ILIKE on PostgreSQL,
+        // LIKE with case-insensitive collation on MySQL/MariaDB.
+        $escapechar = '|';
+        $conditions = [];
+        $params = ['docid' => $documentid];
+        foreach ($tokens as $i => $t) {
+            $key = 'pat' . $i;
+            $t = str_replace('|', '||', $t);
+            $escaped = $DB->sql_like_escape($t, $escapechar);
+            $conditions[] = $DB->sql_like(
+                'c.content', ':' . $key,
+                false, false, false, $escapechar
+            );
+            $params[$key] = '%' . $escaped . '%';
+        }
+        $where = implode(' AND ', $conditions);
+
+        // Self-join: single parent question per annotation (MIN id) — avoids N+1.
+        $sql = "SELECT c.id, c.content, c.isquestion, c.ishidden,
+                       c.annotationid, c.visibility, c.userid,
+                       a.page, a.data AS adata,
+                       t.name AS annotationtype,
+                       q.visibility AS qvisibility, q.userid AS quserid,
+                       q.ishidden AS qishidden, q.isdeleted AS qisdeleted
+                FROM {pdfannotator_comments} c
+                JOIN {pdfannotator_annotations} a ON a.id = c.annotationid
+                JOIN {pdfannotator_annotationtypes} t ON t.id = a.annotationtypeid
+                LEFT JOIN {pdfannotator_comments} q
+                       ON q.id = (
+                           SELECT MIN(id) FROM {pdfannotator_comments}
+                           WHERE annotationid = c.annotationid AND isquestion = 1
+                       )
+                WHERE c.pdfannotatorid = :docid AND c.isdeleted = 0
+                  AND $where";
+
+        $records = $DB->get_records_sql($sql, $params);
+
+        $ret = [];
+        foreach ($records as $record) {
+            if ($record->isquestion) {
+                $vis = $record->visibility;
+                $uid = $record->userid;
+            } else {
+                if ($record->qvisibility === null) { continue; }
+                if ($record->qisdeleted == 1) { continue; }
+                if ($record->qishidden == 1 && !$displayhidden) { continue; }
+                $vis = $record->qvisibility;
+                $uid = $record->quserid;
+            }
+            if ($vis === 'private' && $USER->id != $uid) { continue; }
+            if ($vis === 'protected' && $USER->id != $uid
+                && !has_capability('mod/pdfannotator:viewprotectedcomments', $context)) { continue; }
+            if ($record->ishidden == 1 && !$displayhidden) { continue; }
+
+            // Compute bbox for reading-order sort: natural reading = top-to-bottom, left-to-right.
+            // sorty = minY (top edge), sortx = minX (left edge).
+            // Unknown = PHP_INT_MAX for both (sorts to end, both asc).
+            $adata = @json_decode($record->adata);
+            $sorty = PHP_INT_MAX;
+            $sortx = PHP_INT_MAX;
+            if ($adata) {
+                if (isset($adata->y)) {
+                    // point, area, textbox: x/y is top-left corner.
+                    $sorty = (float)$adata->y;
+                    $sortx = isset($adata->x) ? (float)$adata->x : PHP_INT_MAX;
+                } elseif (isset($adata->rectangles)) {
+                    $rects = is_string($adata->rectangles)
+                        ? @json_decode($adata->rectangles) : $adata->rectangles;
+                    if (is_array($rects) && count($rects) > 0) {
+                        $minY = PHP_INT_MAX; $minX = PHP_INT_MAX;
+                        foreach ($rects as $r) {
+                            if (is_array($r) && count($r) >= 4) {
+                                $minY = min($minY, (float)$r[1], (float)$r[3]);
+                                $minX = min($minX, (float)$r[0], (float)$r[2]);
+                            } elseif (is_object($r)) {
+                                $minY = min($minY,
+                                    (float)($r->y1 ?? PHP_INT_MAX),
+                                    (float)($r->y2 ?? PHP_INT_MAX));
+                                $minX = min($minX,
+                                    (float)($r->x1 ?? PHP_INT_MAX),
+                                    (float)($r->x2 ?? PHP_INT_MAX));
+                            }
+                        }
+                        if ($minY !== PHP_INT_MAX) { $sorty = $minY; }
+                        if ($minX !== PHP_INT_MAX) { $sortx = $minX; }
+                    }
+                } elseif (isset($adata->lines)) {
+                    $lines = is_array($adata->lines) ? $adata->lines : [];
+                    $minY = PHP_INT_MAX; $minX = PHP_INT_MAX;
+                    foreach ($lines as $line) {
+                        if (!is_array($line)) { continue; }
+                        for ($j = 0; $j + 1 < count($line); $j += 2) {
+                            $minY = min($minY, (float)$line[$j + 1]);
+                            $minX = min($minX, (float)$line[$j]);
+                        }
+                    }
+                    if ($minY !== PHP_INT_MAX) { $sorty = $minY; }
+                    if ($minX !== PHP_INT_MAX) { $sortx = $minX; }
+                }
+            }
+
+            $atype = $record->annotationtype;
+            if ($atype === 'pin') { $atype = 'point'; }
+
+            $ret[] = [
+                'commentid'      => (int)$record->id,
+                'content'        => $record->content,
+                'page'           => (int)$record->page,
+                'annotationid'   => (int)$record->annotationid,
+                'annotationtype' => $atype,
+                'isquestion'     => (int)$record->isquestion,
+                '_sorty'         => $sorty,
+                '_sortx'         => $sortx,
+            ];
+        }
+
+        // Sort: page asc, y asc, x asc (left-to-right),
+        //       annotationid asc, commentid asc.
+        usort($ret, function($a, $b) {
+            if ($a['page'] !== $b['page']) { return $a['page'] - $b['page']; }
+            if ($a['_sorty'] !== $b['_sorty']) { return $a['_sorty'] < $b['_sorty'] ? -1 : 1; }
+            if ($a['_sortx'] !== $b['_sortx']) { return $a['_sortx'] < $b['_sortx'] ? -1 : 1; }
+            if ($a['annotationid'] !== $b['annotationid']) { return $a['annotationid'] - $b['annotationid']; }
+            return $a['commentid'] - $b['commentid'];
+        });
+
+        foreach ($ret as &$r) { unset($r['_sorty'], $r['_sortx']); }
+        return $ret;
+    }
+
     public static function get_questions_search($documentid, $pattern, $context) {
         global $DB;
         $ret = [];

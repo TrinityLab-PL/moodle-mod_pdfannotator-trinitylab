@@ -1906,6 +1906,38 @@
         }, 250);
     }
 
+    function renderSearchResults(results) {
+        var list = document.querySelector('#comment-wrapper .comment-list-container');
+        if (!list) { return; }
+        if (!Array.isArray(results) || results.length === 0) {
+            list.innerHTML = '<div class="tl-comment-empty">No results.</div>';
+            return;
+        }
+        list.innerHTML = results.map(function (item) {
+            var badge = item.isquestion ? 'Q' : 'A';
+            var page = Number(item.page) || 1;
+            var plain = String(item.content || '').replace(/<[^>]+>/g, ' ').trim();
+            return '<button type="button" class="tl-search-result-item"'
+                + ' data-annotation-id="' + escapeHtml(String(item.annotationid)) + '"'
+                + ' data-annotation-type="' + escapeHtml(String(item.annotationtype)) + '"'
+                + ' data-page="' + page + '">'
+                + '<span class="tl-search-badge">' + badge + '</span>'
+                + '<span class="tl-search-page">p.' + page + '</span>'
+                + '<span class="tl-search-content">' + escapeHtml(plain.slice(0, 120)) + '</span>'
+                + '</button>';
+        }).join('');
+        list.querySelectorAll('.tl-search-result-item').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var annotationId   = btn.getAttribute('data-annotation-id');
+                var annotationType = btn.getAttribute('data-annotation-type');
+                var page           = parseInt(btn.getAttribute('data-page'), 10) || 1;
+                scrollToPage(page);
+                ensureCommentPanelVisible();
+                loadCommentsForAnnotation(annotationId, annotationType);
+            });
+        });
+    }
+
     function ensureSearchFormControls() {
         var form = document.getElementById('searchForm');
         if (!form) { return; }
@@ -1915,29 +1947,55 @@
         var input = document.getElementById('searchPattern');
         var clearBtn = document.getElementById('searchClear');
         var debounceTimer = null;
-        function applyFilter() {
-            if (state.commentTarget) { return; }
-            state.searchPattern = (input ? input.value : '').toLowerCase().trim();
-            var list = document.querySelector('#comment-wrapper .comment-list-container');
-            if (!list) { return; }
-            if (state._questionsCache) {
-                renderQuestionRows(list, filterBySearchPattern(state._questionsCache));
-            } else {
+        var lastQuery = '';
+
+        function doSearch() {
+            var q = (input ? input.value : '').trim();
+            if (q === lastQuery) { return; }
+            lastQuery = q;
+            if (q.length < 2) {
+                state.searchPattern = '';
                 state._lastQuestionsPage = null;
                 refreshQuestionsList();
+                return;
             }
+            if (state.commentTarget) {
+                state.commentTarget = null;
+                var _composerClear = ensureCommentComposer();
+                if (_composerClear && _composerClear.syncState) {
+                    _composerClear.syncState();
+                }
+            }
+            state.searchPattern = q;
+            var requestQ = q;
+            ajax('searchComments', { q: requestQ }).then(function (data) {
+                // Ignore stale responses.
+                if (state.searchPattern !== requestQ) { return; }
+                var results = Array.isArray(data) ? data : (data.results || []);
+                renderSearchResults(results);
+            }).catch(function () {
+                renderSearchResults([]);
+            });
         }
+
         if (input) {
             input.addEventListener('keyup', function () {
                 if (debounceTimer) { clearTimeout(debounceTimer); }
-                debounceTimer = setTimeout(applyFilter, 200);
+                debounceTimer = setTimeout(doSearch, 300);
+            });
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (debounceTimer) { clearTimeout(debounceTimer); }
+                    doSearch();
+                }
             });
         }
         if (clearBtn) {
             clearBtn.addEventListener('click', function () {
                 if (input) { input.value = ''; }
+                lastQuery = '';
                 state.searchPattern = '';
-                if (state.commentTarget) { return; }
                 state._lastQuestionsPage = null;
                 refreshQuestionsList();
             });

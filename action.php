@@ -76,7 +76,7 @@ function pdfannotator_debuglog_append($context, $tag, $payload) {
 ", FILE_APPEND | LOCK_EX);
 }
 
-$readonlyactions = array('read', 'readsingle', 'getInformation', 'getComments', 'getQuestions', 'getCommentsToPrint');
+$readonlyactions = array('read', 'readsingle', 'getInformation', 'getComments', 'getQuestions', 'getCommentsToPrint', 'searchComments');
 if (!in_array($action, $readonlyactions, true)) {
     require_sesskey();
 }
@@ -381,6 +381,17 @@ if ($action === 'delete') {
 }
 
 /* * ********************************** Retrieve all questions of a specific page or document ********************************** */
+
+if ($action === 'searchComments') {
+    $q = optional_param('q', '', PARAM_TEXT);
+    $q = trim($q);
+    if ($q === '') {
+        echo json_encode([]);
+    } else {
+        $results = pdfannotator_comment::search_all_comments($documentid, $q, $context);
+        echo json_encode($results);
+    }
+}
 
 if ($action === 'getQuestions') {
 
