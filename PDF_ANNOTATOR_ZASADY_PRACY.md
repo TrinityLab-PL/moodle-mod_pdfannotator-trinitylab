@@ -108,7 +108,7 @@
 
 - Przed zmianą: SANITY, SYNTAX, REGRES, SMOKE. Raport: `SANITY: OK/FAIL`, `SYNTAX: OK/FAIL`, `REGRES: OK/FAIL`, `SMOKE: OK/FAIL`.
 - **SANITY (CLI):**  
-  `test -f mod/pdfannotator/shared/index.js && test -f mod/pdfannotator/edit-with-maintenance.sh && test -f /root/trinity_lab_backup/v120_fullscreen_default_better_20260316_035812/mod/pdfannotator/shared/index.js` — kod wyjścia 0.
+  `test -f mod/pdfannotator/shared/index.js && test -f mod/pdfannotator/edit-with-maintenance.sh && test -f mod/pdfannotator/_backups/v120_fullscreen_default_better_20260316_035812/mod/pdfannotator/shared/index.js` — kod wyjścia 0.
 - **SYNTAX (CLI):**  
   PHP: `php -l mod/pdfannotator/view.php && php -l mod/pdfannotator/lib.php`.  
   JS: `node --check /var/www/html/moodle/mod/pdfannotator/shared/index.js` (jeśli brak node: SYNTAX: SKIPPED).
