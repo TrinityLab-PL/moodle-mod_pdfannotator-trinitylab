@@ -2868,3 +2868,27 @@ body.tl-pdf-fullscreen #pdftoolbar {
     margin-left: auto !important;
     margin-right: auto !important;
 }
+/* TL: search results */
+.path-mod-pdfannotator #comment-wrapper .tl-search-result-item {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    width: 100%;
+    gap: 0.35em;
+}
+.path-mod-pdfannotator #comment-wrapper .tl-search-badge {
+    flex: 0 0 2rem;
+    text-align: left;
+    font-weight: 700;
+}
+.path-mod-pdfannotator #comment-wrapper .tl-search-page {
+    flex-shrink: 0;
+}
+.path-mod-pdfannotator #comment-wrapper .tl-search-content {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

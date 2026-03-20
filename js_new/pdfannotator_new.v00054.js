@@ -1973,7 +1973,7 @@
                 + ' data-annotation-type="' + escapeHtml(String(item.annotationtype)) + '"'
                 + ' data-page="' + page + '">'
                 + '<span class="tl-search-badge">' + badge + '</span>'
-                + '<span class="tl-search-page">p.' + page + '</span>'
+                + '<span class="tl-search-page"> page ' + page + ': </span>'
                 + '<span class="tl-search-content">' + escapeHtml(plain.slice(0, 120)) + '</span>'
                 + '</button>';
         }).join('');
