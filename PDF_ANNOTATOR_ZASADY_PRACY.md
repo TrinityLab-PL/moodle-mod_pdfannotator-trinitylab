@@ -86,13 +86,29 @@
 
   (W odpowiedzi wstawić rzeczywistą nazwę katalogu backupu zamiast `NAZWA_BACKUPU`.)
 
+### 4.2 Tryb "backup bez angażowania użytkownika" (MUST)
+
+- Gdy użytkownik prosi o `pełny backup` / `full snapshot`:
+  1. Asystent wykonuje całość **samodzielnie** (bez pytań, bez prośby o kliknięcie `Run`).
+  2. Asystent używa **jednego krótkiego wywołania** `edit-with-maintenance.sh --cmd '...'` do utworzenia snapshotu w `_backups`.
+  3. Po wywołaniu zawsze wymusza `php admin/cli/maintenance.php --disable` w tym samym bashu.
+  4. Asystent **nie kopiuje sam** do `/root/trinity_lab_backup`; podaje tylko gotowy bash dla użytkownika.
+- Jeśli narzędzie terminalowe zwróci `failed to spawn: Aborted`:
+  - asystent wykonuje automatyczny retry (do skutku w bieżącym promptcie, bez angażowania użytkownika),
+  - retry ma używać prostszego, krótszego wariantu komendy (bez rozbudowanej logiki w jednej linii),
+  - użytkownik dostaje dopiero wynik końcowy.
+- Odpowiedź po backupie ma być krótka i zawsze zawierać:
+  - nazwę snapshotu `vXX_opis_TIMESTAMP`,
+  - informację o statusie maintenance,
+  - gotowy bash do kopiowania snapshotu do `/root/trinity_lab_backup`.
+
 ---
 
 ## 5. Testy przed i po (bramka)
 
 - Przed zmianą: SANITY, SYNTAX, REGRES, SMOKE. Raport: `SANITY: OK/FAIL`, `SYNTAX: OK/FAIL`, `REGRES: OK/FAIL`, `SMOKE: OK/FAIL`.
 - **SANITY (CLI):**  
-  `test -f mod/pdfannotator/shared/index.js && test -f mod/pdfannotator/edit-with-maintenance.sh && test -f /root/trinity_lab_backup/v100_full_snapshot_pdfannotator_20260309_071509/mod/shared/index.js` — kod wyjścia 0.
+  `test -f mod/pdfannotator/shared/index.js && test -f mod/pdfannotator/edit-with-maintenance.sh && test -f /root/trinity_lab_backup/v120_fullscreen_default_better_20260316_035812/mod/pdfannotator/shared/index.js` — kod wyjścia 0.
 - **SYNTAX (CLI):**  
   PHP: `php -l mod/pdfannotator/view.php && php -l mod/pdfannotator/lib.php`.  
   JS: `node --check /var/www/html/moodle/mod/pdfannotator/shared/index.js` (jeśli brak node: SYNTAX: SKIPPED).

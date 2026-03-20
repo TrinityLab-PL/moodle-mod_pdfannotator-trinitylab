@@ -664,6 +664,19 @@ body {
     height: 30px;
 }
 
+.path-mod-pdfannotator #searchPattern::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+}
+
+.path-mod-pdfannotator #searchPattern::-ms-clear {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+
 .path-mod-pdfannotator #searchClear {
     margin-left: -25px;
     padding: 0;
@@ -1685,13 +1698,6 @@ input[type="text"]:not([class]):not([id]) {
     z-index: 9999998 !important;
 }
 
-/* Wycentruj toolbar w fullscreen */
-body.tl-pdf-fullscreen #pdftoolbar {
-    margin: 10px auto !important;
-    display: block !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-}
 
 /* Popraw centrowanie - ogranicz szerokość */
 body.tl-pdf-fullscreen #pdftoolbar {
@@ -1699,8 +1705,6 @@ body.tl-pdf-fullscreen #pdftoolbar {
     max-width: 1600px !important;
     margin: 10px auto !important;
     display: block !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
 }
 
 /* Ukryj scrollbary i rozszerz PDF */
@@ -2838,4 +2842,29 @@ body.fullscreenWrapper #comment-wrapper .tl-restore-toggle {
     display: inline-flex !important;
     visibility: visible !important;
     opacity: 1 !important;
+}
+
+
+/* TL_THEATRE_TOOLBAR_CENTER_V2 */
+body.tl-pdf-fullscreen .tl-express-toolbar {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+body.tl-pdf-fullscreen #pdfannotator_index > .row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+body.tl-pdf-fullscreen #pdftoolbar {
+    float: none !important;
+    box-sizing: border-box !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
 }

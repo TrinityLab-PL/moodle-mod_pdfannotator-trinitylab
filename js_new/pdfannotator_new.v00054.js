@@ -423,6 +423,32 @@
         updatePageCounter(pageNo);
     }
 
+    function scrollViewerToAnnotationVerticalCenter(pageNumber, group) {
+        var viewer = viewerEl();
+        var pageState = getPageState(pageNumber);
+        var pageEl = getPageElement(pageNumber);
+        if (!viewer || !pageState || !pageState.stage || !pageEl || !group) {
+            return;
+        }
+        var stage = pageState.stage;
+        var rect = group.getClientRect();
+        var t = group.getAbsoluteTransform().copy();
+        var p1 = t.point({ x: rect.x, y: rect.y });
+        var p2 = t.point({ x: rect.x + rect.width, y: rect.y + rect.height });
+        var centerY = (p1.y + p2.y) / 2;
+        if (!isFinite(centerY)) {
+            return;
+        }
+        var pageRect = pageEl.getBoundingClientRect();
+        var viewerRect = viewer.getBoundingClientRect();
+        var annCenterClientY = pageRect.top + centerY;
+        var viewerMidY = viewerRect.top + viewer.clientHeight / 2;
+        var delta = annCenterClientY - viewerMidY;
+        var newScrollTop = viewer.scrollTop + delta;
+        var maxScroll = Math.max(0, viewer.scrollHeight - viewer.clientHeight);
+        viewer.scrollTop = Math.max(0, Math.min(maxScroll, newScrollTop));
+    }
+
     function ensureCommentPanelVisible() {
         var wrapper = document.getElementById('comment-wrapper');
         if (!wrapper) {
@@ -437,6 +463,26 @@
         if (toggleLabel) toggleLabel.textContent = 'Close';
         var btn = document.getElementById('tl-toggle-comments');
         if (btn) btn.innerHTML = '<i class="fa fa-chevron-right"></i> Close';
+    }
+
+    function openCommentsPanelForGroup(pageNumber, group) {
+        if (!group) {
+            return;
+        }
+        var aid = String(group.getAttr('annotationId') || '');
+        var ad = group.getAttr('annotationData') || {};
+        var atype = String(ad.type || group.getAttr('annotationType') || '');
+        if (!aid) {
+            return;
+        }
+        ensureCommentPanelVisible();
+        loadCommentsForAnnotation(aid, atype);
+        setTimeout(function () {
+            var ta = document.querySelector('#comment-wrapper .tl-comment-input');
+            if (ta && !ta.disabled) {
+                ta.focus();
+            }
+        }, 50);
     }
 
     var theaterState = {
@@ -1102,6 +1148,7 @@
                     if (hitGroup.getAttr && hitGroup.getAttr('annotationData') && hitGroup.getAttr('annotationData').type !== 'point') {
                         setTool('cursor');
                     }
+                    openCommentsPanelForGroup(pageNumber, hitGroup);
                     return;
                 }
                 createAnnotation(pageNumber, {
@@ -1155,6 +1202,7 @@
                     if (hitGroupDraw.getAttr && hitGroupDraw.getAttr('annotationData') && hitGroupDraw.getAttr('annotationData').type !== 'drawing') {
                         setTool('cursor');
                     }
+                    openCommentsPanelForGroup(pageNumber, hitGroupDraw);
                     return;
                 }
                 if (event.evt && event.evt.shiftKey) {
@@ -1232,6 +1280,7 @@
                         if (adTypeRect !== tool) {
                             setTool('cursor');
                         }
+                        openCommentsPanelForGroup(pageNumber, hitGroupRect);
                         return;
                     }
                 }
@@ -1426,11 +1475,13 @@
                     var data = hitGroup.getAttr('annotationData');
                     if (data && data.type === 'textbox') {
                         selectAnnotation(pageNumber, hitGroup);
+                        openCommentsPanelForGroup(pageNumber, hitGroup);
                         return;
                     }
                     if (data && data.type !== 'textbox') {
                         selectAnnotation(pageNumber, hitGroup);
                         setTool('cursor');
+                        openCommentsPanelForGroup(pageNumber, hitGroup);
                         return;
                     }
                 }
@@ -1931,9 +1982,54 @@
                 var annotationId   = btn.getAttribute('data-annotation-id');
                 var annotationType = btn.getAttribute('data-annotation-type');
                 var page           = parseInt(btn.getAttribute('data-page'), 10) || 1;
-                scrollToPage(page);
                 ensureCommentPanelVisible();
-                loadCommentsForAnnotation(annotationId, annotationType);
+                function finish() {
+                    loadCommentsForAnnotation(annotationId, annotationType);
+                }
+                var idStr = String(annotationId || '');
+                function afterSelectScroll(group) {
+                    if (!group) {
+                        return;
+                    }
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () {
+                            scrollViewerToAnnotationVerticalCenter(page, group);
+                            var currentPageInput = document.getElementById('currentPage');
+                            if (currentPageInput) {
+                                currentPageInput.value = String(page);
+                            }
+                            updatePageCounter(page);
+                            updateDeleteButtonPosition();
+                        });
+                    });
+                }
+                function trySelect() {
+                    var pageState = getPageState(page);
+                    var group = pageState && pageState.annotationsById && pageState.annotationsById[idStr];
+                    if (group) {
+                        selectAnnotationFromNavigator(page, group);
+                        return group;
+                    }
+                    return null;
+                }
+                var selected = trySelect();
+                if (selected) {
+                    afterSelectScroll(selected);
+                    finish();
+                    return;
+                }
+                var loadPromise = loadAndRenderAnnotations(page, true);
+                if (loadPromise && typeof loadPromise.then === 'function') {
+                    loadPromise.then(function () {
+                        var g = trySelect();
+                        afterSelectScroll(g);
+                        finish();
+                    }).catch(function () {
+                        finish();
+                    });
+                } else {
+                    finish();
+                }
             });
         });
     }
@@ -2904,8 +3000,6 @@ function fitTextboxAroundContent(annotationData) {
                 if (createdGroup) {
                     clearSelection();
                 }
-                ensureCommentPanelVisible();
-                loadCommentsForAnnotation(created.uuid, created.type);
             }).catch(function (error) {
                 console.error('Create annotation failed', error);
             }).finally(function () {
@@ -3139,8 +3233,7 @@ function fitTextboxAroundContent(annotationData) {
         group.on('click tap', function (event) {
             event.cancelBubble = true;
             selectAnnotation(pageNumber, group);
-            ensureCommentPanelVisible();
-            loadCommentsForAnnotation(annotation.uuid, annotation.type);
+            openCommentsPanelForGroup(pageNumber, group);
         });
 
         if (annotation.type === 'textbox') {
@@ -3207,6 +3300,42 @@ function fitTextboxAroundContent(annotationData) {
 
     function clone(obj) {
         return JSON.parse(JSON.stringify(obj));
+    }
+
+    function clearActiveAnnotationVisual() {
+        if (state.activeAnnotation) {
+            var prevPs = getPageState(state.activeAnnotation.pageNumber);
+            if (prevPs && prevPs.transformer) {
+                prevPs.transformer.nodes([]);
+                prevPs.transformer.visible(false);
+                prevPs.overlayLayer.draw();
+            }
+        }
+        state.activeAnnotation = null;
+        if (state.deleteButton) {
+            state.deleteButton.style.display = 'none';
+        }
+        state.deleteButtonPage = null;
+    }
+
+    function selectAnnotationFromNavigator(pageNumber, group) {
+        clearActiveAnnotationVisual();
+        var pageState = getPageState(pageNumber);
+        if (!pageState || !group) {
+            return;
+        }
+        state.activeAnnotation = {
+            pageNumber: pageNumber,
+            group: group,
+            annotationId: String(group.getAttr('annotationId') || '')
+        };
+        setCommentTarget(state.activeAnnotation.annotationId, String(group.getAttr('annotationType') || ''));
+        if (group.draggable()) {
+            pageState.transformer.nodes([group]);
+            pageState.transformer.visible(true);
+            pageState.overlayLayer.draw();
+        }
+        showDeleteButton();
     }
 
     function selectAnnotation(pageNumber, group) {
@@ -3479,8 +3608,6 @@ function fitTextboxAroundContent(annotationData) {
             if (createdGroup) {
                 clearSelection();
             }
-            ensureCommentPanelVisible();
-            loadCommentsForAnnotation(created.uuid, created.type);
             if (created.type === 'textbox') {
                 setTimeout(function () {
                     showTextboxEditor(pageNumber, created);
