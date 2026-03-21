@@ -2142,8 +2142,8 @@ body.tl-pdf-fullscreen .path-mod-pdfannotator .tl-save-textbox {
 #comment-wrapper .comment-list-container {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 10px;
+    gap: 0.625em;
+    padding: 0.625em 0;
     background: #ffffff;
     border: 1px solid #dbe7f4;
     border-radius: 12px;
@@ -2997,8 +2997,9 @@ body.tl-pdf-fullscreen #pdftoolbar {
 }
 
 .path-mod-pdfannotator .tl-comment-answer {
-    margin-left: 20px;
-    border-left: 2px solid #e2e8f0;
+    margin-left: 1.25em;
+    border-left: 0.125em solid #e2e8f0;
+    padding-left: 0.5em;
 }
 
 .path-mod-pdfannotator .tl-comment-parent-link {
@@ -3084,4 +3085,104 @@ body.tl-pdf-fullscreen #pdftoolbar {
 
 .path-mod-pdfannotator .tl-comment-body-wrap {
     margin-top: 4px;
+}
+
+/* F5b: item actions and meta layout */
+.path-mod-pdfannotator .tl-comment-meta-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #4b5563;
+    margin-bottom: 2px;
+}
+
+.path-mod-pdfannotator .tl-comment-time {
+    flex: 1;
+    font-size: 11px;
+    color: #64748b;
+}
+
+.path-mod-pdfannotator .tl-comment-author {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 4px;
+}
+
+.path-mod-pdfannotator .tl-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.path-mod-pdfannotator .tl-item-visibility {
+    height: 26px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 11px;
+    padding: 0 4px;
+}
+
+.path-mod-pdfannotator .tl-action-btn {
+    height: 26px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #374151;
+    border-radius: 6px;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.path-mod-pdfannotator .tl-action-btn:hover {
+    background: #f1f5f9;
+}
+
+.path-mod-pdfannotator .tl-inline-form {
+    margin-top: 6px;
+}
+
+.path-mod-pdfannotator .tl-inline-input {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-weight: 300;
+    resize: vertical;
+    background: #fff;
+    box-sizing: border-box;
+}
+
+.path-mod-pdfannotator .tl-inline-submit {
+    margin-top: 4px;
+    height: 26px;
+    border: 1px solid #394f96;
+    background: #394f96;
+    color: #fff;
+    border-radius: 6px;
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 300;
+    cursor: pointer;
+}
+
+.path-mod-pdfannotator .tl-inline-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.path-mod-pdfannotator .tl-parent-anchor {
+    font-size: 11px;
+    color: #64748b;
+    text-decoration: underline;
+}
+
+.path-mod-pdfannotator .tl-parent-anchor:hover {
+    color: #2563eb;
 }

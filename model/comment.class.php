@@ -224,6 +224,18 @@ class pdfannotator_comment {
 
             $comment->isdeleted = $data->isdeleted;
             $comment->uuid = $data->id;
+            $comment->id = (int) $data->id;
+            if (!empty($data->posttype)) {
+                $comment->posttype = $data->posttype;
+            } else if ($data->isquestion) {
+                $comment->posttype = 'question';
+            } else if (!empty($data->parentid) && (int)$data->parentid > 0) {
+                $comment->posttype = 'answer';
+            } else {
+                $comment->posttype = 'comment';
+            }
+            $comment->parentid = (!empty($data->parentid) && (int)$data->parentid > 0)
+                ? (int)$data->parentid : null;
             $comment->ishidden = $data->ishidden ? 1 : 0;
             if ($data->isdeleted) {
                 $comment->displaycontent = get_string('deletedComment', 'pdfannotator');
@@ -619,8 +631,10 @@ class pdfannotator_comment {
         global $DB, $USER;
         $displayhidden = has_capability('mod/pdfannotator:seehiddencomments', $context);
         // Get all questions of a page with a subselect, where all ids of annotations of one page are selected.
-        $sql = "SELECT c.* FROM {pdfannotator_comments} c WHERE isquestion = 1 AND annotationid IN "
-                . "(SELECT id FROM {pdfannotator_annotations} a WHERE a.page = :page AND a.pdfannotatorid = :docid)";
+        $sql = "SELECT c.*, a.page AS page, t.name AS annotationtype FROM {pdfannotator_comments} c "
+                . "JOIN {pdfannotator_annotations} a ON a.id = c.annotationid "
+                . "JOIN {pdfannotator_annotationtypes} t ON t.id = a.annotationtypeid "
+                . "WHERE c.isquestion = 1 AND a.page = :page AND a.pdfannotatorid = :docid";
         $questions = $DB->get_records_sql($sql, array('page' => $pagenumber, 'docid' => $documentid));
         $ret = [];
         foreach ($questions as $question) {
@@ -650,9 +664,10 @@ class pdfannotator_comment {
     public static function get_all_questions($documentid, $context) {
         global $DB;
         // Get all questions of a page with a subselect, where all ids of annotations of one page are selected.
-        $sql = "SELECT c.*, a.page FROM {pdfannotator_comments} c "
-                . "JOIN (SELECT * FROM {pdfannotator_annotations} WHERE pdfannotatorid = :docid) a "
-                . "ON a.id = c.annotationid WHERE isquestion = 1";
+        $sql = "SELECT c.*, a.page AS page, t.name AS annotationtype FROM {pdfannotator_comments} c "
+                . "JOIN {pdfannotator_annotations} a ON a.id = c.annotationid "
+                . "JOIN {pdfannotator_annotationtypes} t ON t.id = a.annotationtypeid "
+                . "WHERE c.isquestion = 1 AND a.pdfannotatorid = :docid";
         $questions = $DB->get_records_sql($sql, array('docid' => $documentid));
 
         $ret = [];
@@ -819,10 +834,11 @@ class pdfannotator_comment {
         $ret = [];
         $i = 0;
         $displayhidden = has_capability('mod/pdfannotator:seehiddencomments', $context);
-        $sql = "SELECT c.*, a.page FROM {pdfannotator_comments} c "
+        $sql = "SELECT c.*, a.page AS page, t.name AS annotationtype FROM {pdfannotator_comments} c "
                 . "JOIN {pdfannotator_annotations} a ON a.id = c.annotationid "
-                . "WHERE isquestion = 1 AND c.pdfannotatorid = :docid AND "
-                . "annotationid IN "
+                . "JOIN {pdfannotator_annotationtypes} t ON t.id = a.annotationtypeid "
+                . "WHERE c.isquestion = 1 AND c.pdfannotatorid = :docid AND "
+                . "c.annotationid IN "
                . "(SELECT annotationid FROM {pdfannotator_comments} "
                      . "WHERE " . $DB->sql_like('content', ':pattern', false) . " AND isdeleted = 0) "
                 . "ORDER BY a.page, c.id";

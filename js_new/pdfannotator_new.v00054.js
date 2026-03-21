@@ -1849,6 +1849,54 @@
         toggleBtn.title = state.showAllComments ? 'Hide all comments' : 'Show all comments';
     }
 
+    function navigateToAnnotation(annotationId, annotationType, page) {
+        ensureCommentPanelVisible();
+        var idStr = String(annotationId || '');
+        var pageNo = parseInt(page, 10) || 1;
+
+        function afterSelectScroll(group) {
+            if (!group) return;
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    scrollViewerToAnnotationVerticalCenter(pageNo, group);
+                    var currentPageInput = document.getElementById('currentPage');
+                    if (currentPageInput) currentPageInput.value = String(pageNo);
+                    updatePageCounter(pageNo);
+                    updateDeleteButtonPosition();
+                });
+            });
+        }
+
+        function trySelect() {
+            var pageState = getPageState(pageNo);
+            var group = pageState && pageState.annotationsById && pageState.annotationsById[idStr];
+            if (group) {
+                selectAnnotationFromNavigator(pageNo, group);
+                return group;
+            }
+            return null;
+        }
+
+        var selected = trySelect();
+        if (selected) {
+            afterSelectScroll(selected);
+            loadCommentsForAnnotation(annotationId, annotationType);
+            return;
+        }
+        var loadPromise = loadAndRenderAnnotations(pageNo, true);
+        if (loadPromise && typeof loadPromise.then === 'function') {
+            loadPromise.then(function () {
+                var g = trySelect();
+                afterSelectScroll(g);
+                loadCommentsForAnnotation(annotationId, annotationType);
+            }).catch(function () {
+                loadCommentsForAnnotation(annotationId, annotationType);
+            });
+        } else {
+            loadCommentsForAnnotation(annotationId, annotationType);
+        }
+    }
+
     function renderQuestionRows(list, entries) {
         list.innerHTML = '';
         if (!Array.isArray(entries) || entries.length === 0) {
@@ -1864,14 +1912,10 @@
             body.innerHTML = q && q.content ? q.content : '';
             article.appendChild(body);
 
-            if (q && q.page) {
+            if (q && q.annotationid && q.page) {
                 article.style.cursor = 'pointer';
                 article.addEventListener('click', function () {
-                    var pageNo = String(q.page || '');
-                    var el = viewerEl().querySelector('.page[data-page-number="' + pageNo + '"]');
-                    if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
+                    navigateToAnnotation(q.annotationid, String(q.annotationtype || ''), q.page);
                 });
             }
 
@@ -2298,7 +2342,7 @@
             '</div>',
             '<div class="tl-composer-input-wrap" style="display:none">',
             '<textarea class="tl-comment-input" rows="3" placeholder=""></textarea>',
-            '<button type="button" class="tl-composer-btn tl-composer-btn-submit">Send</button>',
+            '<button type="button" class="tl-composer-btn tl-composer-btn-submit">Add comment</button>',
             '</div>'
         ].join('');
 
@@ -2327,6 +2371,7 @@
                 currentPosttype = null;
                 currentAnnotationId = null;
                 input.value = '';
+                btnSubmit.textContent = 'Add comment';
                 return;
             }
             var newId = state.commentTarget.annotationId;
@@ -2334,6 +2379,7 @@
                 currentPosttype = null;
                 input.value = '';
                 inputWrap.style.display = 'none';
+                btnSubmit.textContent = 'Add comment';
                 currentAnnotationId = newId;
             }
             label.textContent = 'Annotation #' + newId;
@@ -2345,7 +2391,8 @@
         function choosePosttype(type) {
             currentPosttype = type;
             inputWrap.style.display = 'block';
-            input.placeholder = (type === 'question') ? '...and type a question' : '...and type a comment';
+            input.placeholder = (type === 'question') ? 'Type a question' : 'Type a comment';
+            btnSubmit.textContent = (type === 'question') ? 'Ask question' : 'Add comment';
             input.focus();
         }
 
@@ -2443,12 +2490,22 @@
             return;
         }
 
+        function hasParentId(p) {
+            var n = parseInt(p, 10);
+            return !isNaN(n) && n > 0;
+        }
+
         var roots = [];
         var answersByParent = {};
         comments.forEach(function (item) {
-            var pt = item.posttype || (item.isquestion ? 'question' : 'comment');
+            var pt = item.posttype;
+            if (!pt) {
+                if (item.isquestion) pt = 'question';
+                else if (hasParentId(item.parentid)) pt = 'answer';
+                else pt = 'comment';
+            }
             item._posttype = pt;
-            if (pt === 'answer' && item.parentid) {
+            if (pt === 'answer' && hasParentId(item.parentid)) {
                 var pid = String(item.parentid);
                 if (!answersByParent[pid]) answersByParent[pid] = [];
                 answersByParent[pid].push(item);
@@ -2459,103 +2516,159 @@
 
         list.innerHTML = '';
 
-        roots.forEach(function (root) {
-            var rootDbId = String(root.uuid || root.id || '');
-            var rootCommentId = String(root.id || root.uuid || '');
-            var pt = root._posttype;
-            var badge = pt === 'question' ? 'Q' : 'C';
-            var user = escapeHtml(root.username || 'Użytkownik');
-            var time = escapeHtml(formatPolishTimestamp(root.timecreatedts, root.timecreated || '') || root.timecreated || '');
-            var body = root.displaycontent || escapeHtml(root.content || '');
+        function buildInlineForm(placeholder, submitLabel) {
+            var div = document.createElement('div');
+            div.className = 'tl-inline-form';
+            div.style.display = 'none';
+            div.innerHTML = '<textarea class="tl-inline-input" rows="2" placeholder="'
+                + escapeHtml(placeholder) + '"></textarea>'
+                + '<button type="button" class="tl-inline-submit">' + escapeHtml(submitLabel) + '</button>';
+            return div;
+        }
 
-            var article = document.createElement('article');
-            article.className = 'tl-comment-item tl-comment-root';
-            article.setAttribute('data-comment-id', rootDbId);
-            article.innerHTML = '<div class="tl-comment-meta">'
-                + '<span class="tl-comment-badge tl-badge-' + pt + '">' + badge + '</span>'
-                + '<strong>' + user + '</strong>'
-                + '<span class="tl-comment-meta-right"><span>' + time + '</span>'
-                + '<button type="button" class="tl-comment-delete" data-comment-id="' + escapeHtml(rootDbId) + '" title="Delete"><i class="fa fa-trash"></i></button>'
-                + '</span></div>'
-                + '<div class="tl-comment-body-wrap"><div class="tl-comment-body tl-comment-body-collapsible">' + body + '</div></div>'
-                + '<div class="tl-comment-root-actions">'
-                + '<button type="button" class="tl-reply-btn" data-parent-id="' + escapeHtml(rootCommentId) + '">Reply</button>'
-                + '</div>'
-                + '<div class="tl-reply-form" style="display:none">'
-                + '<textarea class="tl-reply-input" rows="2" placeholder="...and type a reply"></textarea>'
-                + '<button type="button" class="tl-reply-submit">Send</button>'
-                + '</div>';
-            list.appendChild(article);
-
-            var replyBtn    = article.querySelector('.tl-reply-btn');
-            var replyForm   = article.querySelector('.tl-reply-form');
-            var replyInput  = article.querySelector('.tl-reply-input');
-            var replySubmit = article.querySelector('.tl-reply-submit');
-
-            replyBtn.addEventListener('click', function () {
-                var shown = replyForm.style.display !== 'none';
-                replyForm.style.display = shown ? 'none' : 'block';
-                if (!shown) replyInput.focus();
-            });
-
-            replySubmit.addEventListener('click', function () {
-                var content = (replyInput.value || '').trim();
-                if (!content) { replyInput.focus(); return; }
+        function bindSubmit(form, visEl, posttype, parentId) {
+            var input     = form.querySelector('.tl-inline-input');
+            var submitBtn = form.querySelector('.tl-inline-submit');
+            submitBtn.addEventListener('click', function () {
+                var content = (input.value || '').trim();
+                if (!content) { input.focus(); return; }
                 if (!state.commentTarget || !state.commentTarget.annotationId) return;
-                replySubmit.disabled = true;
-                var visEl = document.querySelector('#comment-wrapper .tl-comment-visibility');
+                submitBtn.disabled = true;
                 ajax('addComment', {
                     annotationId: String(state.commentTarget.annotationId),
                     content: content,
-                    visibility: visEl ? visEl.value : 'public',
-                    posttype: 'answer',
-                    parentid: rootCommentId,
+                    visibility: visEl.value || 'public',
+                    posttype: posttype,
+                    parentid: parentId,
                     pdfannotator_addcomment_editoritemid: '0'
                 }).then(function () {
-                    replyInput.value = '';
-                    replyForm.style.display = 'none';
+                    input.value = '';
+                    form.style.display = 'none';
                     if (state.commentTarget && state.commentTarget.annotationId) {
                         loadCommentsForAnnotation(state.commentTarget.annotationId, state.commentTarget.annotationType);
                     }
                 }).catch(function (error) {
-                    console.error('Reply failed', error);
+                    console.error('Submit failed', error);
                 }).finally(function () {
-                    replySubmit.disabled = false;
+                    submitBtn.disabled = false;
                 });
             });
+        }
+
+        function buildActionRow() {
+            var div = document.createElement('div');
+            div.className = 'tl-item-actions';
+            div.innerHTML = '<select class="tl-item-visibility">'
+                + '<option value="public">Public</option>'
+                + '<option value="anonymous">Anonymous</option>'
+                + '<option value="private">Private</option>'
+                + '<option value="protected">Protected</option>'
+                + '</select>'
+                + '<button type="button" class="tl-action-btn tl-action-add-comment">Add comment</button>'
+                + '<button type="button" class="tl-action-btn tl-action-reply">Reply</button>';
+            return div;
+        }
+
+        function bindActionRow(container, actionRow, commentPosttype, commentParentId, replyParentId) {
+            var visEl      = actionRow.querySelector('.tl-item-visibility');
+            var btnComment = actionRow.querySelector('.tl-action-add-comment');
+            var btnReply   = actionRow.querySelector('.tl-action-reply');
+
+            var commentForm = buildInlineForm('Type a comment', 'Add comment');
+            var replyForm   = buildInlineForm('Type a reply',   'Add reply');
+            container.appendChild(commentForm);
+            container.appendChild(replyForm);
+
+            function toggle(form) {
+                var other = (form === commentForm) ? replyForm : commentForm;
+                var shown = form.style.display !== 'none';
+                form.style.display  = shown ? 'none' : 'block';
+                other.style.display = 'none';
+                if (!shown) form.querySelector('.tl-inline-input').focus();
+            }
+
+            btnComment.addEventListener('click', function () { toggle(commentForm); });
+            btnReply.addEventListener('click',   function () { toggle(replyForm); });
+
+            bindSubmit(commentForm, visEl, commentPosttype, commentParentId);
+            bindSubmit(replyForm,   visEl, 'answer',        replyParentId);
+        }
+
+        roots.forEach(function (root) {
+            var rootDbId      = String(root.uuid || root.id || '');
+            var rootCommentId = String(root.id   || root.uuid || '');
+            var pt            = root._posttype;
+            var badgeLabel    = pt === 'question' ? 'Q' : 'C';
+            var badgeTitle    = pt === 'question' ? 'Question' : 'Comment';
+            var user          = escapeHtml(root.username || 'Użytkownik');
+            var time          = escapeHtml(formatPolishTimestamp(root.timecreatedts, root.timecreated || '') || root.timecreated || '');
+            var body          = root.displaycontent || escapeHtml(root.content || '');
+
+            var article = document.createElement('article');
+            article.className = 'tl-comment-item tl-comment-root';
+            article.id = 'tl-cmt-' + rootDbId;
+            article.setAttribute('data-comment-id', rootDbId);
+            article.innerHTML =
+                '<div class="tl-comment-meta-top">'
+                + '<span class="tl-comment-badge tl-badge-' + pt + '" title="' + badgeTitle + '">' + badgeLabel + '</span>'
+                + '<span class="tl-comment-time">' + time + '</span>'
+                + '<button type="button" class="tl-comment-delete" data-comment-id="' + escapeHtml(rootDbId) + '" title="Delete"><i class="fa fa-trash"></i></button>'
+                + '</div>'
+                + '<div class="tl-comment-author"><strong>' + user + '</strong></div>'
+                + '<div class="tl-comment-body-wrap"><div class="tl-comment-body tl-comment-body-collapsible">' + body + '</div></div>';
+
+            var actionRow = buildActionRow();
+            article.appendChild(actionRow);
+            bindActionRow(article, actionRow, 'comment', 0, rootCommentId);
+            list.appendChild(article);
 
             var answers = answersByParent[rootCommentId] || [];
             answers.forEach(function (ans) {
-                var ansDbId  = String(ans.uuid || ans.id || '');
-                var ansUser  = escapeHtml(ans.username || 'Użytkownik');
-                var ansTime  = escapeHtml(formatPolishTimestamp(ans.timecreatedts, ans.timecreated || '') || ans.timecreated || '');
-                var ansBody  = ans.displaycontent || escapeHtml(ans.content || '');
-                // TODO: replace rootCommentId with annotation ordinal #N when API provides it
-                var parentLink = (pt === 'question' ? 'Reply to' : 'Comment to') + ' #' + escapeHtml(rootCommentId);
+                var ansDbId   = String(ans.uuid || ans.id || '');
+                var ansUser   = escapeHtml(ans.username || 'Użytkownik');
+                var ansTime   = escapeHtml(formatPolishTimestamp(ans.timecreatedts, ans.timecreated || '') || ans.timecreated || '');
+                var ansBody   = ans.displaycontent || escapeHtml(ans.content || '');
+                var linkText  = (pt === 'question' ? 'Reply to' : 'Comment to') + ' #' + escapeHtml(rootCommentId);
 
                 var ansArticle = document.createElement('article');
                 ansArticle.className = 'tl-comment-item tl-comment-answer';
+                ansArticle.id = 'tl-cmt-' + ansDbId;
                 ansArticle.setAttribute('data-comment-id', ansDbId);
-                ansArticle.innerHTML = '<div class="tl-comment-meta">'
-                    + '<span class="tl-comment-badge tl-badge-answer">A</span>'
-                    + '<strong>' + ansUser + '</strong>'
-                    + '<span class="tl-comment-meta-right"><span>' + ansTime + '</span>'
+                ansArticle.innerHTML =
+                    '<div class="tl-comment-meta-top">'
+                    + '<span class="tl-comment-badge tl-badge-answer" title="Answer">A</span>'
+                    + '<span class="tl-comment-time">' + ansTime + '</span>'
                     + '<button type="button" class="tl-comment-delete" data-comment-id="' + escapeHtml(ansDbId) + '" title="Delete"><i class="fa fa-trash"></i></button>'
-                    + '</span></div>'
-                    + '<div class="tl-comment-parent-link">' + parentLink + '</div>'
+                    + '</div>'
+                    + '<div class="tl-comment-author"><strong>' + ansUser + '</strong></div>'
+                    + '<div class="tl-comment-parent-link">'
+                    + '<a href="#tl-cmt-' + escapeHtml(rootDbId) + '" class="tl-parent-anchor">' + linkText + '</a>'
+                    + '</div>'
                     + '<div class="tl-comment-body-wrap"><div class="tl-comment-body tl-comment-body-collapsible">' + ansBody + '</div></div>';
+
+                var ansActionRow = buildActionRow();
+                ansArticle.appendChild(ansActionRow);
+                bindActionRow(ansArticle, ansActionRow, 'comment', 0, rootCommentId);
                 list.appendChild(ansArticle);
             });
         });
 
+        list.querySelectorAll('.tl-parent-anchor').forEach(function (a) {
+            a.addEventListener('click', function (e) {
+                e.preventDefault();
+                var target = document.getElementById(a.getAttribute('href').slice(1));
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+        });
+
         list.querySelectorAll('.tl-comment-body-collapsible').forEach(function (bodyEl) {
-            var lh = parseFloat(window.getComputedStyle(bodyEl).lineHeight) || 20;
+            var lh   = parseFloat(window.getComputedStyle(bodyEl).lineHeight) || 20;
             var maxH = lh * 3;
             if (bodyEl.scrollHeight > maxH + 4) {
                 bodyEl.style.maxHeight = maxH + 'px';
-                bodyEl.style.overflow = 'hidden';
+                bodyEl.style.overflow  = 'hidden';
                 var wrap = bodyEl.parentNode;
-                var btn = document.createElement('button');
+                var btn  = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'tl-show-more';
                 btn.textContent = 'Show more...';
@@ -2563,11 +2676,11 @@
                 btn.addEventListener('click', function () {
                     if (bodyEl.style.maxHeight) {
                         bodyEl.style.maxHeight = '';
-                        bodyEl.style.overflow = '';
+                        bodyEl.style.overflow  = '';
                         btn.textContent = 'Show less';
                     } else {
                         bodyEl.style.maxHeight = maxH + 'px';
-                        bodyEl.style.overflow = 'hidden';
+                        bodyEl.style.overflow  = 'hidden';
                         btn.textContent = 'Show more...';
                     }
                 });
