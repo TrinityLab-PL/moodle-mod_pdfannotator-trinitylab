@@ -2999,7 +2999,7 @@ body.tl-pdf-fullscreen #pdftoolbar {
 .path-mod-pdfannotator .tl-comment-answer {
     margin-left: 1.25em;
     border-left: 0.125em solid #e2e8f0;
-    padding-left: 0.5em;
+    padding-left: calc(0.5em + 4px);
 }
 
 .path-mod-pdfannotator .tl-comment-parent-link {
@@ -3105,9 +3105,13 @@ body.tl-pdf-fullscreen #pdftoolbar {
 
 .path-mod-pdfannotator .tl-comment-author {
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 400;
     color: #1f2937;
     margin-bottom: 4px;
+}
+
+.path-mod-pdfannotator .tl-comment-author strong {
+    font-weight: 700;
 }
 
 .path-mod-pdfannotator .tl-item-actions {
@@ -3185,4 +3189,30 @@ body.tl-pdf-fullscreen #pdftoolbar {
 
 .path-mod-pdfannotator .tl-parent-anchor:hover {
     color: #2563eb;
+}
+
+/* TL_THREAD_COLLAPSE_V54 */
+.path-mod-pdfannotator .tl-comment-children {
+    margin-top: 6px;
+}
+.path-mod-pdfannotator .tl-comment-children.tl-collapsed {
+    display: none;
+}
+.path-mod-pdfannotator .tl-thread-toggle {
+    border: 0;
+    background: transparent;
+    color: #2563eb;
+    font-size: 12px;
+    padding: 0 4px;
+    cursor: pointer;
+    font-weight: 400;
+}
+.path-mod-pdfannotator .tl-thread-toggle:hover {
+    text-decoration: underline;
+}
+.path-mod-pdfannotator .tl-comment-meta-end {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
 }

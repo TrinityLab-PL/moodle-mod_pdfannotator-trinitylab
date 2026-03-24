@@ -2611,8 +2611,11 @@
             article.innerHTML =
                 '<div class="tl-comment-meta-top">'
                 + '<span class="tl-comment-badge tl-badge-' + pt + '" title="' + badgeTitle + '">' + badgeLabel + '</span>'
+                + '<button type="button" class="tl-thread-toggle">Collapse</button>'
+                + '<span class="tl-comment-meta-end">'
                 + '<span class="tl-comment-time">' + time + '</span>'
                 + '<button type="button" class="tl-comment-delete" data-comment-id="' + escapeHtml(rootDbId) + '" title="Delete"><i class="fa fa-trash"></i></button>'
+                + '</span>'
                 + '</div>'
                 + '<div class="tl-comment-author"><strong>' + user + '</strong></div>'
                 + '<div class="tl-comment-body-wrap"><div class="tl-comment-body tl-comment-body-collapsible">' + body + '</div></div>';
@@ -2620,6 +2623,17 @@
             var actionRow = buildActionRow();
             article.appendChild(actionRow);
             bindActionRow(article, actionRow, 'comment', 0, rootCommentId);
+
+            var childrenDiv = document.createElement('div');
+            childrenDiv.className = 'tl-comment-children';
+            article.appendChild(childrenDiv);
+
+            var toggleBtn = article.querySelector('.tl-thread-toggle');
+            toggleBtn.addEventListener('click', function () {
+                var collapsed = childrenDiv.classList.toggle('tl-collapsed');
+                toggleBtn.textContent = collapsed ? 'Expand' : 'Collapse';
+            });
+
             list.appendChild(article);
 
             var answers = answersByParent[rootCommentId] || [];
@@ -2628,8 +2642,6 @@
                 var ansUser   = escapeHtml(ans.username || 'Użytkownik');
                 var ansTime   = escapeHtml(formatPolishTimestamp(ans.timecreatedts, ans.timecreated || '') || ans.timecreated || '');
                 var ansBody   = ans.displaycontent || escapeHtml(ans.content || '');
-                var linkText  = (pt === 'question' ? 'Reply to' : 'Comment to') + ' #' + escapeHtml(rootCommentId);
-
                 var ansArticle = document.createElement('article');
                 ansArticle.className = 'tl-comment-item tl-comment-answer';
                 ansArticle.id = 'tl-cmt-' + ansDbId;
@@ -2637,27 +2649,18 @@
                 ansArticle.innerHTML =
                     '<div class="tl-comment-meta-top">'
                     + '<span class="tl-comment-badge tl-badge-answer" title="Answer">A</span>'
+                    + '<span class="tl-comment-meta-end">'
                     + '<span class="tl-comment-time">' + ansTime + '</span>'
                     + '<button type="button" class="tl-comment-delete" data-comment-id="' + escapeHtml(ansDbId) + '" title="Delete"><i class="fa fa-trash"></i></button>'
+                    + '</span>'
                     + '</div>'
                     + '<div class="tl-comment-author"><strong>' + ansUser + '</strong></div>'
-                    + '<div class="tl-comment-parent-link">'
-                    + '<a href="#tl-cmt-' + escapeHtml(rootDbId) + '" class="tl-parent-anchor">' + linkText + '</a>'
-                    + '</div>'
                     + '<div class="tl-comment-body-wrap"><div class="tl-comment-body tl-comment-body-collapsible">' + ansBody + '</div></div>';
 
                 var ansActionRow = buildActionRow();
                 ansArticle.appendChild(ansActionRow);
                 bindActionRow(ansArticle, ansActionRow, 'comment', 0, rootCommentId);
-                list.appendChild(ansArticle);
-            });
-        });
-
-        list.querySelectorAll('.tl-parent-anchor').forEach(function (a) {
-            a.addEventListener('click', function (e) {
-                e.preventDefault();
-                var target = document.getElementById(a.getAttribute('href').slice(1));
-                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                childrenDiv.appendChild(ansArticle);
             });
         });
 
