@@ -816,18 +816,22 @@
 
     function initPdf() {
         if (!window.pdfjsLib) {
-            throw new Error('pdfjsLib is not available');
+            return Promise.reject(new Error('pdfjsLib is not available'));
         }
-        pdfjsLib.GlobalWorkerOptions.workerSrc = ((window.M && M.cfg && M.cfg.wwwroot) ? M.cfg.wwwroot : '') + '/mod/pdfannotator/lib/pdfjs/pdf.worker.min.js?ver=00004';
-        return pdfjsLib.getDocument({ url: state.documentObject.fullurl, withCredentials: true }).promise.then(function (pdfDoc) {
-            state.pdf = pdfDoc;
-            var sumPages = document.getElementById('sumPages');
-            if (sumPages) {
-                sumPages.textContent = String(pdfDoc.numPages);
-            }
-            updatePageCounter(1);
-            return pdfDoc;
-        });
+        try {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = ((window.M && M.cfg && M.cfg.wwwroot) ? M.cfg.wwwroot : '') + '/mod/pdfannotator/lib/pdfjs/pdf.worker.min.js?ver=00004';
+            return pdfjsLib.getDocument({ url: state.documentObject.fullurl, withCredentials: true }).promise.then(function (pdfDoc) {
+                state.pdf = pdfDoc;
+                var sumPages = document.getElementById('sumPages');
+                if (sumPages) {
+                    sumPages.textContent = String(pdfDoc.numPages);
+                }
+                updatePageCounter(1);
+                return pdfDoc;
+            });
+        } catch (e) {
+            return Promise.reject(e);
+        }
     }
 
     function renderDocument() {
@@ -1846,9 +1850,15 @@
         if (icon) {
             icon.className = state.showAllComments ? 'icon fa fa-comment fa-fw' : 'icon fa fa-comment-o fa-fw';
         }
+        var label = toggleBtn.querySelector('.tl-toggle-all-label');
+        if (label) {
+            var newText = state.showAllComments ? 'Hide all' : 'Show all';
+            if (label.textContent !== newText) {
+                label.textContent = newText;
+            }
+        }
         toggleBtn.title = state.showAllComments ? 'Hide all comments' : 'Show all comments';
     }
-
     function navigateToAnnotation(annotationId, annotationType, page) {
         ensureCommentPanelVisible();
         var idStr = String(annotationId || '');
@@ -1990,7 +2000,23 @@
             return;
         }
         btn.dataset.bound = '1';
+        if (!btn.querySelector('.tl-toggle-all-label')) {
+            var lbl = document.createElement('span');
+            lbl.className = 'tl-toggle-all-label';
+            lbl.textContent = state.showAllComments ? 'Hide all' : 'Show all';
+            btn.style.display = 'inline-flex';
+            btn.style.alignItems = 'center';
+            btn.style.gap = '5px';
+            btn.style.fontFamily = 'Open Sans, Arial, sans-serif';
+            btn.style.fontWeight = '300';
+            btn.appendChild(lbl);
+        }
         btn.addEventListener('click', function () {
+            if (state.commentTarget) {
+                clearCommentTarget();
+                ensureCommentNavControls();
+                return;
+            }
             state.showAllComments = !state.showAllComments;
             state._lastQuestionsPage = null;
             ensureCommentNavControls();
@@ -4011,19 +4037,31 @@ function fitTextboxAroundContent(annotationData) {
         bindVisibilityRecovery();
 
 
-        initPdf().then(function () {
-            renderDocument();
-            startInitialLoadRetries();
-            setTimeout(function () {
-                scheduleAnnotationRecovery('init');
-            }, 900);
-        }).catch(function (error) {
-            console.error('PDF initialization failed', error);
+        try {
+            var __pdfInit = initPdf();
+            if (!__pdfInit || typeof __pdfInit.then !== 'function') {
+                throw new Error('initPdf did not return a promise');
+            }
+            __pdfInit.then(function () {
+                renderDocument();
+                startInitialLoadRetries();
+                setTimeout(function () {
+                    scheduleAnnotationRecovery('init');
+                }, 900);
+            }).catch(function (error) {
+                console.error('PDF initialization failed', error);
+                var viewer = viewerEl();
+                if (viewer) {
+                    viewer.innerHTML = '<div class="alert alert-danger">PDF.js/Konva initialization failed. Check console.</div>';
+                }
+            });
+        } catch (error) {
+            console.error('PDF initialization failed (sync)', error);
             var viewer = viewerEl();
             if (viewer) {
-                viewer.innerHTML = '<div class="alert alert-danger">PDF.js/Konva initialization failed. Check console.</div>';
+                viewer.innerHTML = '<div class="alert alert-danger">PDF initialization failed.</div>';
             }
-        });
+        }
     }
 
     function startIndexCompat() {

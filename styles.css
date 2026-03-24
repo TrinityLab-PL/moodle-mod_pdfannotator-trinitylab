@@ -3201,7 +3201,7 @@ body.tl-pdf-fullscreen #pdftoolbar {
 .path-mod-pdfannotator .tl-thread-toggle {
     border: 0;
     background: transparent;
-    color: #2563eb;
+    color: inherit;
     font-size: 12px;
     padding: 0 4px;
     cursor: pointer;
