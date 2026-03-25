@@ -159,7 +159,7 @@ class pdfannotator_annotation {
         $deleteown = has_capability('mod/pdfannotator:deleteown', $context);
         if ($deleteany) {
             $result[] = true;
-        } else if (($author !== $userid) || !$deleteown) {
+        } else if (((int) $author !== (int) $userid) || !$deleteown) {
             $result[] = false;
             $result[] = get_string('onlyDeleteOwnAnnotations', 'pdfannotator');
         } else if ($DB->record_exists_select('pdfannotator_comments', "annotationid = ? AND userid != ?",

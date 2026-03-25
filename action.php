@@ -192,6 +192,7 @@ if ($action === 'readsingle') {
     $annotation->class = "Annotation";
     $annotation->page = $record->page;
     $annotation->uuid = $record->id;
+    $annotation->owner = ($record->userid == $USER->id);
     $data = array('documentId' => $documentid, 'annotation' => $annotation);
     echo json_encode($data);
     return;
@@ -286,6 +287,7 @@ if ($action === 'create') {
         $data['class'] = "Annotation";
         $data['page'] = $pageid;
         $data['status'] = 'success';
+        $data['owner'] = true;
 
         // 2.2 and send it off for display.
         echo json_encode($data);

@@ -3673,6 +3673,11 @@ function fitTextboxAroundContent(annotationData) {
         state.deleteButtonPage = null;
     }
 
+    function canDeleteAnnotationOnCanvas(data) {
+        var c = state.capabilities || {};
+        return !!(c.deleteany || (c.deleteown && data && data.owner === true));
+    }
+
     function showDeleteButton() {
         if (!state.activeAnnotation) {
             return;
@@ -3680,6 +3685,15 @@ function fitTextboxAroundContent(annotationData) {
         var pageNo = state.activeAnnotation.pageNumber;
         var pageElement = viewerEl().querySelector('.page[data-page-number="' + pageNo + '"]');
         if (!pageElement) {
+            return;
+        }
+
+        var selGroup = state.activeAnnotation.group;
+        var selData = selGroup && selGroup.getAttr('annotationData');
+        if (!canDeleteAnnotationOnCanvas(selData || {})) {
+            if (state.deleteButton) {
+                state.deleteButton.style.display = 'none';
+            }
             return;
         }
 
@@ -3732,6 +3746,9 @@ function fitTextboxAroundContent(annotationData) {
         var group = active.group;
         var annotationId = group && group.getAttr('annotationId');
         if (!annotationId) {
+            return;
+        }
+        if (!canDeleteAnnotationOnCanvas(group.getAttr('annotationData') || {})) {
             return;
         }
         var annotationIdStr = String(annotationId);
