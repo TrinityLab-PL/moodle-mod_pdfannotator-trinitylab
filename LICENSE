@@ -18,7 +18,7 @@ governed by the project's own license (see Moodle and plugin documentation).
   Version used:    2.0.2
 
   File included in this plugin:
-    mod/pdfannotator/lib/lazy-brush/lazy-brush.umd.cjs
+    mod/pdfannotator/lib/lazy-brush/lazy-brush.umd.js
 
   Source of the file (unchanged, official UMD build from the package):
     https://unpkg.com/lazy-brush@2.0.2/lib/lazy-brush.umd.cjs
@@ -30,7 +30,7 @@ governed by the project's own license (see Moodle and plugin documentation).
     and integrated in js_new/pdfannotator_new.js (and versioned copies).
 
   What was taken:
-    Only the single file lazy-brush.umd.cjs from the above URL. No other
+    Only that single UMD build from the above URL (byte-identical copy stored as lazy-brush.umd.js for Moodle javascript.php). No other
     files or code snippets from the lazy-brush repository were copied.
     The integration code in pdfannotator_new.js (calls to LazyBrush
     constructor, update(), getBrushCoordinates()) was written for this

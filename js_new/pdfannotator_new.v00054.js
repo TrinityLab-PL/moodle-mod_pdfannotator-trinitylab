@@ -1803,6 +1803,47 @@
         state.commentNavObserver.observe(nav, { childList: true, subtree: true });
     }
 
+    var TL_TOGGLE_ALL_TOOLTIP_DELAY = 570;
+
+    function getOrCreateToggleAllToolbarTooltip() {
+        var tip = document.getElementById('tl-toggle-all-toolbar-tooltip');
+        if (!tip) {
+            tip = document.createElement('div');
+            tip.id = 'tl-toggle-all-toolbar-tooltip';
+            tip.className = 'tl-toolbar-tooltip';
+            tip.innerHTML = '<div style="text-align:center;font-size:1em;font-weight:400"></div>';
+            tip.style.cssText = 'display:none;position:fixed;z-index:1000010;background:#333;color:#e6e6e6;padding:6px 10px;border-radius:4px;white-space:normal;pointer-events:none;font-family:"Open Sans",Arial,sans-serif;';
+            document.body.appendChild(tip);
+        }
+        return tip;
+    }
+
+    function bindToggleAllCommentsToolbarTooltip(btn) {
+        if (!btn || btn.dataset.tlToggleTooltipBound === '1') {
+            return;
+        }
+        btn.dataset.tlToggleTooltipBound = '1';
+        btn.removeAttribute('title');
+        var tip = getOrCreateToggleAllToolbarTooltip();
+        var showTimer;
+        btn.addEventListener('mouseenter', function () {
+            if (showTimer) clearTimeout(showTimer);
+            showTimer = setTimeout(function () {
+                showTimer = null;
+                var text = btn.getAttribute('data-tl-tooltip') || '';
+                tip.firstChild.textContent = text;
+                var r = btn.getBoundingClientRect();
+                tip.style.left = r.left + 'px';
+                tip.style.top = (r.bottom + 8) + 'px';
+                tip.style.display = 'block';
+            }, TL_TOGGLE_ALL_TOOLTIP_DELAY);
+        });
+        btn.addEventListener('mouseleave', function () {
+            if (showTimer) { clearTimeout(showTimer); showTimer = null; }
+            tip.style.display = 'none';
+        });
+    }
+
     function ensureCommentNavControls() {
         var nav = document.getElementById('comment-nav');
         if (!nav) {
@@ -1813,7 +1854,7 @@
             toggleBtn = document.createElement('button');
             toggleBtn.id = 'toggleAllCommentsList';
             toggleBtn.className = 'btn-link';
-            toggleBtn.title = state.showAllComments ? 'Hide all comments' : 'Show all comments';
+            toggleBtn.setAttribute('data-tl-tooltip', state.showAllComments ? 'Hide all comments' : 'Show all comments');
             toggleBtn.innerHTML = '<i class="icon fa fa-comment-o fa-fw"></i>';
             nav.prepend(toggleBtn);
         }
@@ -1857,7 +1898,8 @@
                 label.textContent = newText;
             }
         }
-        toggleBtn.title = state.showAllComments ? 'Hide all comments' : 'Show all comments';
+        toggleBtn.setAttribute('data-tl-tooltip', state.showAllComments ? 'Hide all comments' : 'Show all comments');
+        toggleBtn.removeAttribute('title');
     }
     function navigateToAnnotation(annotationId, annotationType, page) {
         ensureCommentPanelVisible();
@@ -2000,6 +2042,7 @@
             return;
         }
         btn.dataset.bound = '1';
+        bindToggleAllCommentsToolbarTooltip(btn);
         if (!btn.querySelector('.tl-toggle-all-label')) {
             var lbl = document.createElement('span');
             lbl.className = 'tl-toggle-all-label';

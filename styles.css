@@ -2688,6 +2688,21 @@ body:not(.tl-pdf-fullscreen) #viewer {
     margin-top: 0 !important;
 }
 
+/* TL_COMMENT_LIST_GAP_V56: more space between thread roots (pdfannotator only) */
+.path-mod-pdfannotator #comment-wrapper .comment-list-container {
+    gap: 1.35em;
+    align-items: stretch;
+    min-width: 0;
+}
+
+/* TL_COMMENT_LIST_ROOT_WIDTH_V60: equal card width for trash/meta alignment */
+.path-mod-pdfannotator #comment-wrapper .comment-list-container > .tl-comment-item {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
 /* Ramki kolumny komentarzy - trwale wyłączone */
 #comment-wrapper .comment-list-container,
 #comment-wrapper .tl-comment-composer,
@@ -2996,10 +3011,21 @@ body.tl-pdf-fullscreen #pdftoolbar {
     cursor: not-allowed;
 }
 
+/* TL_THREAD_CHILD_INDENT_V56: no borders; jawny padding reply — V61 w .tl-comment-children .tl-comment-answer */
 .path-mod-pdfannotator .tl-comment-answer {
-    margin-left: 1.25em;
-    border-left: 0.125em solid #e2e8f0;
-    padding-left: calc(0.5em + 4px);
+    margin-left: 0;
+    border-left: 0;
+}
+
+/* TL_THREAD_ANSWER_IN_THREAD_V59 + TL_THREAD_REPLY_PADDING_V61: grid col 2; jawny padding (lewo 0 = wcięcie z grida) */
+.path-mod-pdfannotator .tl-comment-children .tl-comment-answer {
+    grid-column: 2;
+    margin-left: 0;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 10px 12px 10px 0;
 }
 
 .path-mod-pdfannotator .tl-comment-parent-link {
@@ -3095,10 +3121,12 @@ body.tl-pdf-fullscreen #pdftoolbar {
     font-size: 12px;
     color: #4b5563;
     margin-bottom: 2px;
+    min-width: 0;
 }
 
 .path-mod-pdfannotator .tl-comment-time {
     flex: 1;
+    min-width: 0;
     font-size: 11px;
     color: #64748b;
 }
@@ -3147,6 +3175,71 @@ body.tl-pdf-fullscreen #pdftoolbar {
     background: #f1f5f9;
 }
 
+/* TL_THREAD_ITEM_ACTIONS_V55: thread row — link-style; tight native select arrow; layout B grid */
+.path-mod-pdfannotator .tl-comment-item .tl-item-actions {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    width: 100%;
+    align-items: center;
+    column-gap: 12px;
+    flex-wrap: unset;
+}
+
+.path-mod-pdfannotator .tl-comment-item .tl-item-actions .tl-action-add-comment {
+    justify-self: center;
+}
+
+.path-mod-pdfannotator .tl-comment-item .tl-item-actions .tl-action-reply {
+    justify-self: end;
+}
+
+.path-mod-pdfannotator .tl-comment-item .tl-item-actions .tl-item-visibility {
+    border: 0;
+    background: transparent;
+    border-radius: 0;
+    height: auto;
+    min-height: 24px;
+    line-height: 1.3;
+    padding: 2px 0.4em 2px 0;
+    margin-right: 0;
+    font-size: 11px;
+    font-weight: 400;
+    color: inherit;
+    cursor: pointer;
+    width: max-content;
+    max-width: 100%;
+    justify-self: start;
+}
+
+.path-mod-pdfannotator .tl-comment-item .tl-item-actions .tl-item-visibility:hover {
+    text-decoration: underline;
+}
+
+.path-mod-pdfannotator .tl-comment-item .tl-item-actions .tl-action-btn {
+    border: 0;
+    background: transparent;
+    border-radius: 0;
+    height: auto;
+    min-height: 24px;
+    line-height: 1.3;
+    padding: 2px 4px;
+    font-size: 11px;
+    font-weight: 400;
+    color: inherit;
+    cursor: pointer;
+}
+
+.path-mod-pdfannotator .tl-comment-item .tl-item-actions .tl-action-btn:hover {
+    background: transparent;
+    text-decoration: underline;
+}
+
+.path-mod-pdfannotator .tl-comment-item .tl-item-actions .tl-item-visibility:focus-visible,
+.path-mod-pdfannotator .tl-comment-item .tl-item-actions .tl-action-btn:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
 .path-mod-pdfannotator .tl-inline-form {
     margin-top: 6px;
 }
@@ -3191,10 +3284,16 @@ body.tl-pdf-fullscreen #pdftoolbar {
     color: #2563eb;
 }
 
-/* TL_THREAD_COLLAPSE_V54 */
+/* TL_THREAD_COLLAPSE_V54 + spacing / alignment V59: grid for right-edge alignment */
 .path-mod-pdfannotator .tl-comment-children {
-    margin-top: 6px;
+    margin-top: 1.05em;
+    display: grid;
+    grid-template-columns: 2em minmax(0, 1fr);
+    column-gap: 0;
+    row-gap: 1.05em;
+    min-width: 0;
 }
+
 .path-mod-pdfannotator .tl-comment-children.tl-collapsed {
     display: none;
 }
@@ -3215,4 +3314,5 @@ body.tl-pdf-fullscreen #pdftoolbar {
     align-items: center;
     gap: 4px;
     margin-left: auto;
+    min-width: 0;
 }
