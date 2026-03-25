@@ -2924,18 +2924,18 @@ body.tl-pdf-fullscreen #pdftoolbar {
 }
 
 .path-mod-pdfannotator .tl-badge-question {
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: rgba(168, 37, 25, 0.14);
+    color: #a82519;
 }
 
 .path-mod-pdfannotator .tl-badge-comment {
-    background: #f1f5f9;
-    color: #475569;
+    background: rgba(57, 79, 150, 0.14);
+    color: #394f96;
 }
 
 .path-mod-pdfannotator .tl-badge-answer {
-    background: #dcfce7;
-    color: #166534;
+    background: rgba(83, 135, 33, 0.14);
+    color: #538721;
 }
 
 .path-mod-pdfannotator .tl-comment-root-actions {
