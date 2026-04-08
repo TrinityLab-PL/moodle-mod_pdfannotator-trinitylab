@@ -224,7 +224,7 @@ $string['likeCountAnswer'] = 'persons think this answer is helpful';
 $string['likeCountQuestion'] = 'people have the same question';
 $string['likeForbidden'] = 'You are not allowed to like this comment';
 $string['likeOwnComment'] = 'You cannot mark your own question';
-$string['likeQuestion'] = 'I\'ve got the same question';
+$string['likeQuestion'] = 'I have the same question';
 $string['likeQuestionForbidden'] = 'You already marked that you have the same question';
 $string['loading'] = 'Loading!';
 
