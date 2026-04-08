@@ -141,27 +141,19 @@ class comment implements \renderable, \templatable {
     }
 
     public function setvotes($comment) {
-        if ($comment->usevotes && !$comment->isdeleted) {
+        if ($comment->usevotes && !$comment->isdeleted && $comment->isquestion) {
             if ($comment->owner) {
                 $comment->voteBtn = get_string('likeOwnComment', 'pdfannotator');
-            } else if ($comment->isvoted && $comment->isquestion) {
+            } else if ($comment->isvoted) {
                 $comment->voteBtn = get_string('likeQuestionForbidden', 'pdfannotator');
-            } else if ($comment->isvoted && !$comment->isquestion) {
-                $comment->voteBtn = get_string('likeAnswerForbidden', 'pdfannotator');
-            } else if (!$comment->isvoted && $comment->isquestion) {
+            } else {
                 $comment->voteBtn = get_string('likeQuestion', 'pdfannotator');
-            } else if (!$comment->isvoted && !$comment->isquestion) {
-                $comment->voteBtn = get_string('likeAnswer', 'pdfannotator');
             }
 
             if (!$comment->votes) {
                 $comment->votes = "0";
             }
-            if ($comment->isquestion) {
-                $comment->voteTitle = $comment->votes . " " . get_string('likeCountQuestion', 'pdfannotator');
-            } else {
-                $comment->voteTitle = $comment->votes . " " . get_string('likeCountAnswer', 'pdfannotator');
-            }
+            $comment->voteTitle = $comment->votes . " " . get_string('likeCountQuestion', 'pdfannotator');
         }
     }
 

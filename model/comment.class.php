@@ -712,6 +712,14 @@ class pdfannotator_comment {
         if (!$DB->record_exists('pdfannotator_comments', array('id' => $commentid))) {
             return false;
         }
+        $crow = $DB->get_record('pdfannotator_comments', array('id' => $commentid), 'id,isquestion,posttype');
+        if (!$crow) {
+            return false;
+        }
+        $isquestionrow = ((int) $crow->isquestion === 1) || (strtolower(trim($crow->posttype ?? '')) === 'question');
+        if (!$isquestionrow) {
+            return false;
+        }
 
         // Create a new record, insert it in the table named 'votes' and return its id, which is created by autoincrement.
         $datarecord = new stdClass();

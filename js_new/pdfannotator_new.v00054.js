@@ -162,6 +162,107 @@
         });
     }
 
+    function moodlePdfStr(key, def) {
+        try {
+            if (window.M && M.util && typeof M.util.get_string === 'function') {
+                return M.util.get_string(key, 'pdfannotator');
+            }
+        } catch (e) { }
+        return def || key;
+    }
+
+    function appendSameQuestionVoteUi(article, item) {
+        var isQ = item._posttype === 'question' || item.isquestion === 1 || item.isquestion === true;
+        if (!isQ || !item.usevotes || item.isdeleted) {
+            return;
+        }
+        var caps = state.capabilities || {};
+        var uid = parseInt(state.userId, 10) || 0;
+        var wrap = document.createElement('div');
+        wrap.className = 'tl-same-question-vote';
+        wrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;margin-right:8px;';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'comment-like-a btn-link tl-comment-like';
+        var countSpan = document.createElement('span');
+        countSpan.className = 'tl-vote-count countVotes';
+        var votes = parseInt(item.votes, 10);
+        if (isNaN(votes)) {
+            votes = 0;
+        }
+        countSpan.textContent = String(votes);
+        var own = parseInt(item.userid, 10) === uid;
+        var voted = item.isvoted === true || item.isvoted === 1 || item.isvoted === '1';
+        var canVote = !!caps.vote && !own && !voted;
+
+        var tipOwn = moodlePdfStr('likeOwnComment', 'Your own question');
+        var tipVoted = moodlePdfStr('likeQuestionForbidden', 'You already marked that you have the same question');
+        var tipVote = moodlePdfStr('likeQuestion', 'I have the same question');
+        var countTip = String(votes) + ' ' + moodlePdfStr('likeCountQuestion', 'people have the same question');
+
+        btn.innerHTML = '<i class="icon fa fa-thumbs-up fa-fw" aria-hidden="true"></i>';
+        if (own) {
+            btn.setAttribute('data-tl-tooltip', tipOwn);
+            btn.disabled = true;
+        } else if (voted) {
+            btn.setAttribute('data-tl-tooltip', tipVoted);
+            btn.disabled = true;
+        } else if (!caps.vote) {
+            btn.style.display = 'none';
+        } else {
+            btn.setAttribute('data-tl-tooltip', tipVote);
+        }
+        countSpan.setAttribute('data-tl-tooltip', countTip);
+
+        wrap.appendChild(btn);
+        wrap.appendChild(countSpan);
+        var metaTop = article.querySelector('.tl-comment-meta-top');
+        var metaEnd = article.querySelector('.tl-comment-meta-end');
+        if (metaTop && metaEnd) {
+            metaTop.insertBefore(wrap, metaEnd);
+        } else if (metaTop) {
+            metaTop.appendChild(wrap);
+        }
+
+        if (btn.style.display !== 'none') {
+            bindTlToolbarTooltip(btn);
+        }
+        bindTlToolbarTooltip(countSpan);
+
+        if (canVote) {
+            btn.addEventListener('click', function () {
+                btn.disabled = true;
+                var cid = String(item.id || item.uuid || '');
+                ajax('voteComment', { commentid: cid })
+                    .then(function (data) {
+                        if (data && data.status === 'success') {
+                            var nv = data.numberVotes;
+                            votes = nv != null ? parseInt(nv, 10) : votes + 1;
+                            if (isNaN(votes)) {
+                                votes = 0;
+                            }
+                            countSpan.textContent = String(votes);
+                            countSpan.setAttribute(
+                                'data-tl-tooltip',
+                                String(votes) + ' ' + moodlePdfStr('likeCountQuestion', 'people have the same question')
+                            );
+                            btn.setAttribute('data-tl-tooltip', moodlePdfStr('likeQuestionForbidden', 'You already marked that you have the same question'));
+                        } else {
+                            btn.disabled = false;
+                            var msg = moodlePdfStr('error:voteComment', 'Vote failed');
+                            if (data && data.reason === 'vote_question_only') {
+                                msg = moodlePdfStr('error:votequestiononly', msg);
+                            }
+                            window.alert(msg);
+                        }
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        window.alert(moodlePdfStr('error:voteComment', 'Vote failed'));
+                    });
+            });
+        }
+    }
 
     function debugLog(tag, msg, extra) {
         try {
@@ -1819,11 +1920,14 @@
         return tip;
     }
 
-    function bindToggleAllCommentsToolbarTooltip(btn) {
-        if (!btn || btn.dataset.tlToggleTooltipBound === '1') {
+    function bindTlToolbarTooltip(btn) {
+        if (!btn || btn.dataset.tlToolbarTooltipBound === '1') {
             return;
         }
-        btn.dataset.tlToggleTooltipBound = '1';
+        btn.dataset.tlToolbarTooltipBound = '1';
+        if (!btn.getAttribute('data-tl-tooltip') && btn.getAttribute('title')) {
+            btn.setAttribute('data-tl-tooltip', btn.getAttribute('title'));
+        }
         btn.removeAttribute('title');
         var tip = getOrCreateToggleAllToolbarTooltip();
         var showTimer;
@@ -1832,6 +1936,9 @@
             showTimer = setTimeout(function () {
                 showTimer = null;
                 var text = btn.getAttribute('data-tl-tooltip') || '';
+                if (!text) {
+                    return;
+                }
                 tip.firstChild.textContent = text;
                 var r = btn.getBoundingClientRect();
                 tip.style.left = r.left + 'px';
@@ -1843,6 +1950,10 @@
             if (showTimer) { clearTimeout(showTimer); showTimer = null; }
             tip.style.display = 'none';
         });
+    }
+
+    function bindToggleAllCommentsToolbarTooltip(btn) {
+        bindTlToolbarTooltip(btn);
     }
 
     function ensureCommentNavControls() {
@@ -2849,6 +2960,7 @@
                 }
             }
 
+            appendSameQuestionVoteUi(article, item);
             var actionRow = buildActionRow();
             article.appendChild(actionRow);
             bindActionRow(article, actionRow, nodeIdStr);
@@ -2881,6 +2993,7 @@
                 + '<div class="tl-comment-author"><strong>' + user + '</strong></div>'
                 + '<div class="tl-comment-body-wrap"><div class="tl-comment-body tl-comment-body-collapsible">' + body + '</div></div>';
 
+            appendSameQuestionVoteUi(article, root);
             var actionRow = buildActionRow();
             article.appendChild(actionRow);
             bindActionRow(article, actionRow, rootIdStr);

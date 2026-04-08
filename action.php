@@ -566,12 +566,23 @@ if ($action === 'voteComment') {
 
     $commentid = required_param('commentid', PARAM_INT);
 
-    $numbervotes = pdfannotator_comment::insert_vote($documentid, $commentid);
-
-    if ($numbervotes) {
-        echo json_encode(['status' => 'success', 'numberVotes' => $numbervotes]);
+    $commentrow = $DB->get_record('pdfannotator_comments', array('id' => $commentid), 'id,isquestion,posttype');
+    if (!$commentrow) {
+        echo json_encode(['status' => 'error', 'reason' => 'notfound']);
     } else {
-        echo json_encode(['status' => 'error']);
+        $isquestionvote = ((int) $commentrow->isquestion === 1)
+            || (strtolower(trim($commentrow->posttype ?? '')) === 'question');
+        if (!$isquestionvote) {
+            echo json_encode(['status' => 'error', 'reason' => 'vote_question_only']);
+        } else {
+            $numbervotes = pdfannotator_comment::insert_vote($documentid, $commentid);
+
+            if ($numbervotes) {
+                echo json_encode(['status' => 'success', 'numberVotes' => $numbervotes]);
+            } else {
+                echo json_encode(['status' => 'error', 'reason' => 'vote_failed']);
+            }
+        }
     }
 }
 

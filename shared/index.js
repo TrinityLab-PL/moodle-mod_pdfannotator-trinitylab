@@ -2122,8 +2122,14 @@ function startIndex(
                     }
 
                     function createVoteHandler(comment) {
-                        // Create an element for click.
                         var likeButton = $('#comment_' + comment.uuid + ' .comment-like-a');
+                        if (comment.isquestion != 1) {
+                            if (likeButton.length) {
+                                likeButton.attr('disabled', 'disabled');
+                                likeButton.css('visibility', 'hidden');
+                            }
+                            return;
+                        }
                         if (comment.isdeleted == 1 || !comment.usevotes) {
                             likeButton.attr('disabled', 'disabled');
                             likeButton.css('visibility', 'hidden');
@@ -2137,13 +2143,15 @@ function startIndex(
                                 .voteComment(RENDER_OPTIONS.documentId, comment.uuid)
                                 .then(function (data) {
                                     if (data.status == 'error') {
+                                        var errKey = data.reason === 'vote_question_only'
+                                            ? 'error:votequestiononly'
+                                            : 'error:voteComment';
                                         notification.addNotification({
-                                            message: M.util.get_string('error:voteComment', 'pdfannotator'),
+                                            message: M.util.get_string(errKey, 'pdfannotator'),
                                             type: 'error',
                                         });
-                                        console.error(M.util.get_string('error:voteComment', 'pdfannotator'));
+                                        console.error(M.util.get_string(errKey, 'pdfannotator'));
                                     } else {
-                                        // Update number of votes and disable button.
                                         var voteDiv = document.querySelector(
                                             'div#comment_' + comment.uuid + ' div.wrappervotessolved'
                                         );
@@ -2153,23 +2161,13 @@ function startIndex(
 
                                         button.disabled = true;
                                         div.innerHTML = data.numberVotes;
-                                        if (comment.isquestion == 1) {
-                                            button.title = M.util.get_string('likeQuestionForbidden', 'pdfannotator'); //button
-                                            img.title = M.util.get_string('likeQuestionForbidden', 'pdfannotator'); //img
-                                            img.alt = M.util.get_string('likeQuestionForbidden', 'pdfannotator'); //img
-                                            div.title =
-                                                data.numberVotes +
-                                                ' ' +
-                                                M.util.get_string('likeCountQuestion', 'pdfannotator');
-                                        } else {
-                                            button.title = M.util.get_string('likeAnswerForbidden', 'pdfannotator');
-                                            img.title = M.util.get_string('likeAnswerForbidden', 'pdfannotator'); //img
-                                            img.alt = M.util.get_string('likeAnswerForbidden', 'pdfannotator'); //img
-                                            div.title =
-                                                data.numberVotes +
-                                                ' ' +
-                                                M.util.get_string('likeCountAnswer', 'pdfannotator');
-                                        }
+                                        button.title = M.util.get_string('likeQuestionForbidden', 'pdfannotator');
+                                        img.title = M.util.get_string('likeQuestionForbidden', 'pdfannotator');
+                                        img.alt = M.util.get_string('likeQuestionForbidden', 'pdfannotator');
+                                        div.title =
+                                            data.numberVotes +
+                                            ' ' +
+                                            M.util.get_string('likeCountQuestion', 'pdfannotator');
                                     }
                                 });
                         });

@@ -68,7 +68,7 @@ function pdfannotator_display_embed($pdfannotator, $cm, $course, $file, $page = 
     $PAGE->requires->js('/mod/pdfannotator/lib/konva/konva_loader.js?ver=00001', false);
     $PAGE->requires->js('/mod/pdfannotator/shared/textclipper.js', false);
     $PAGE->requires->js('/mod/pdfannotator/lib/lazy-brush/lazy-brush.umd.js?ver=00002', false);
-    $PAGE->requires->js('/mod/pdfannotator/js_new/pdfannotator_new.v00054.js?ver=00085', false);
+    $PAGE->requires->js('/mod/pdfannotator/js_new/pdfannotator_new.v00054.js?ver=00087', false);
     $PAGE->requires->js('/mod/pdfannotator/shared/locallib.js?ver=00008', false);
 
     // Pass parameters from PHP to JavaScript.
@@ -95,6 +95,7 @@ function pdfannotator_display_embed($pdfannotator, $cm, $course, $file, $page = 
     $capabilities->useprint = has_capability('mod/pdfannotator:printdocument', $context);
     $capabilities->useprintcomments = has_capability('mod/pdfannotator:printcomments', $context);
     $capabilities->markcorrectanswer = has_capability('mod/pdfannotator:markcorrectanswer', $context);
+    $capabilities->vote = has_capability('mod/pdfannotator:vote', $context);
     // 3. Comment editor setting.
     $editorsettings = new stdClass();
     $editorsettings->active_editor = get_class(editors_get_preferred_editor(FORMAT_HTML));
@@ -1021,7 +1022,7 @@ function pdfannotator_get_questions($courseid, $context, $questionfilter) {
 
     $sql = "SELECT a.id as annoid, a.page, a.pdfannotatorid, p.name AS pdfannotatorname, p.usevotes, cm.id AS cmid, c.isquestion, "
         . "c.id as commentid, c.content, c.userid, c.visibility, c.timecreated, c.isdeleted, c.ishidden, "
-        . "SUM(vote) AS votes, MAX(answ.timecreated) AS lastanswered "
+        . "COUNT(DISTINCT v.id) AS votes, MAX(answ.timecreated) AS lastanswered "
         . "FROM {pdfannotator_annotations} a "
         . "JOIN {pdfannotator_comments} c ON c.annotationid = a.id "
         . "JOIN {pdfannotator} p ON a.pdfannotatorid = p.id "
