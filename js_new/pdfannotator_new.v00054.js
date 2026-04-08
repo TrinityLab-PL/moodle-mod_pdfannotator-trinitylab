@@ -29,22 +29,18 @@
         commentRequestToken: 0,
         annotationsLoadedOnce: false,
         annotationWarmupTimer: null,
-        annotationWarmupRounds: 0,
         ajaxNonce: 0,
         keyboardBound: false,
         deletedAnnotations: [],
         recycleItems: [],
         pendingDeletedAnnotations: {},
         restoreInitAttempts: 0,
-        annotationFastWarmupTimer: null,
         commentNavObserver: null,
         commentNavMuting: false,
         showAllComments: false,
         _lastQuestionsPage: null,
         recoveryTimer: null,
         visibilityRecoveryBound: false,
-        initialLoadRetryTimer: null,
-        initialLoadRetryCount: 0,
         bootstrapped: false,
         searchPattern: '',
         _questionsCache: null,
@@ -401,16 +397,6 @@
             clearTimeout(state.annotationWarmupTimer);
             state.annotationWarmupTimer = null;
         }
-        if (state.annotationFastWarmupTimer) {
-            clearTimeout(state.annotationFastWarmupTimer);
-            state.annotationFastWarmupTimer = null;
-        }
-        if (state.initialLoadRetryTimer) {
-            clearInterval(state.initialLoadRetryTimer);
-            state.initialLoadRetryTimer = null;
-        }
-        state.initialLoadRetryCount = 0;
-        state.annotationWarmupRounds = 0;
         state.annotationsCache = {};
         state.annotationsHashByPage = {};
         state.annotationsInFlight = {};
@@ -1327,13 +1313,6 @@
         }, 180);
     }
 
-    function startInitialLoadRetries() {
-        if (state.initialLoadRetryTimer) {
-            clearInterval(state.initialLoadRetryTimer);
-            state.initialLoadRetryTimer = null;
-        }
-        state.initialLoadRetryCount = 0;
-    }
 
     function drawAnnotationsForPage(pageNumber, annotations, forceDraw) {
         var pageState = getPageState(pageNumber);
