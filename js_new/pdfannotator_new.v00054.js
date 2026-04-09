@@ -44,6 +44,12 @@
         bootstrapped: false,
         searchPattern: '',
         _questionsCache: null,
+        savedPosition: null,
+        restorePositionPending: null,
+        displayModeRerenderTimer: null,
+        lastScrollTop: 0,
+        lastScrollTs: 0,
+        fastScrollUntilTs: 0,
         annotationsCache: {},
         annotationsHashByPage: {},
         annotationsInFlight: {},
@@ -59,11 +65,18 @@
             firstPageRenderMs: null,
             fullRenderMs: null,
             readRequests: 0,
-            readBatchRequests: 0
+            readBatchRequests: 0,
+            queuedPages: 0,
+            renderedPagesCount: 0,
+            prunedPages: 0,
+            visibleWithoutBitmap: 0,
+            ensurePageReadyRetries: 0
         },
         perfFlags: {
             virtualizedRender: true,
-            batchRead: true
+            batchRead: true,
+            aggressivePrune: true,
+            strictEnsurePageReady: true
         }
     };
     var cursorCache = {};
@@ -100,6 +113,25 @@
         return document.getElementById('viewer');
     }
 
+
+    function isTheaterModeActive() {
+        return !!(document.body && document.body.classList && document.body.classList.contains('tl-pdf-fullscreen'));
+    }
+
+    function isFastScrollingNow() {
+        return Date.now() < (state.fastScrollUntilTs || 0);
+    }
+
+    function getRenderConcurrency() {
+        if (isFastScrollingNow()) {
+            return 1;
+        }
+        if (isTheaterModeActive() && state.scale >= 1.5) {
+            return 1;
+        }
+        return 2;
+    }
+
     function getPageElement(pageNumber) {
         var v = viewerEl();
         return v ? v.querySelector('.page[data-page-number="' + pageNumber + '"]') : null;
@@ -107,6 +139,55 @@
 
     function getPageState(pageNumber) {
         return state.pages[pageNumber] || null;
+    }
+
+
+    function clampNumber(value, min, max) {
+        var numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return min;
+        }
+        return Math.max(min, Math.min(max, numeric));
+    }
+
+    function buildSavedPosition(pageNo, scrollTop) {
+        var viewer = viewerEl();
+        var page = Math.max(1, parseInt(pageNo || 1, 10) || 1);
+        var top = Math.max(0, Number(scrollTop) || 0);
+        var ratio = null;
+        var pageEl = getPageElement(page);
+        if (viewer && pageEl) {
+            var pageHeight = Math.max(1, pageEl.offsetHeight || 1);
+            ratio = clampNumber((top - pageEl.offsetTop) / pageHeight, 0, 1);
+        }
+        return {
+            page: page,
+            ratio: ratio,
+            scrollTop: top,
+            scale: state.scale
+        };
+    }
+
+    function applyPendingSavedPosition(renderedPageNo) {
+        var pending = state.restorePositionPending;
+        if (!pending || Number(pending.page) !== Number(renderedPageNo)) {
+            return;
+        }
+        var viewer = viewerEl();
+        var pageEl = getPageElement(renderedPageNo);
+        if (!viewer || !pageEl) {
+            return;
+        }
+        var targetTop;
+        if (Number.isFinite(pending.ratio)) {
+            targetTop = pageEl.offsetTop + (Math.max(0, Math.min(1, pending.ratio)) * Math.max(1, pageEl.offsetHeight || 1));
+        } else {
+            targetTop = Number.isFinite(pending.scrollTop) ? pending.scrollTop : pageEl.offsetTop;
+        }
+        var maxScroll = Math.max(0, viewer.scrollHeight - viewer.clientHeight);
+        viewer.scrollTop = Math.max(0, Math.min(maxScroll, Math.round(targetTop)));
+        state.restorePositionPending = null;
+        state.savedPosition = null;
     }
 
     function ajax(action, payload, method) {
@@ -529,6 +610,16 @@
         }
         var savePosTimer = null;
         viewer.addEventListener('scroll', function () {
+            var now = Date.now();
+            var topNow = viewer.scrollTop;
+            var dt = state.lastScrollTs ? (now - state.lastScrollTs) : 0;
+            var delta = Math.abs(topNow - (state.lastScrollTop || 0));
+            if (dt > 0 && dt < 140 && delta > Math.max(180, viewer.clientHeight * 0.6)) {
+                state.fastScrollUntilTs = now + 700;
+            }
+            state.lastScrollTop = topNow;
+            state.lastScrollTs = now;
+
             var current = getCurrentPage();
             var currentPageInput = document.getElementById('currentPage');
             if (currentPageInput) {
@@ -547,7 +638,9 @@
                 if (state.contextId != null) {
                     var p = getCurrentPage();
                     var top = viewer.scrollTop;
-                    try { localStorage.setItem(key, JSON.stringify({ page: p, scrollTop: top })); } catch (e) {}
+                    var saved = buildSavedPosition(p, top);
+                    saved.v = 2;
+                    try { localStorage.setItem(key, JSON.stringify(saved)); } catch (e) {}
                 }
                 savePosTimer = null;
             }, 400);
@@ -638,26 +731,33 @@
         if (!state.pdf) {
             return;
         }
-        var delay = Number.isFinite(delayMs) ? delayMs : 260;
-        setTimeout(function () {
-            requestAnimationFrame(function () {
-                requestAnimationFrame(function () {
-                    if (!state.pdf) {
-                        return;
-                    }
-                    var viewer = viewerEl();
-                    if (viewer) {
-                        state.savedScrollTop = viewer.scrollTop;
-                        state.initialPage = getCurrentPage();
-                    }
-                    renderDocument();
-                    setTimeout(function () {
-                        if (state.pdf) {
-                            scheduleRenderWindowUpdate(true);
-                        }
-                    }, 260);
-                });
-            });
+        var delay = Number.isFinite(delayMs) ? delayMs : 220;
+        if (state.displayModeRerenderTimer) {
+            clearTimeout(state.displayModeRerenderTimer);
+            state.displayModeRerenderTimer = null;
+        }
+        state.displayModeRerenderTimer = setTimeout(function () {
+            state.displayModeRerenderTimer = null;
+            if (!state.pdf) {
+                return;
+            }
+            var viewer = viewerEl();
+            if (viewer) {
+                state.savedPosition = buildSavedPosition(getCurrentPage(), viewer.scrollTop);
+                state.restorePositionPending = {
+                    page: state.savedPosition.page,
+                    ratio: state.savedPosition.ratio,
+                    scrollTop: state.savedPosition.scrollTop,
+                    scale: state.savedPosition.scale
+                };
+                state.initialPage = state.savedPosition.page;
+            }
+            renderDocument();
+            setTimeout(function () {
+                if (state.pdf) {
+                    scheduleRenderWindowUpdate(true);
+                }
+            }, 220);
         }, delay);
     }
 
@@ -1031,8 +1131,8 @@
         }
 
         var vp = viewport || state.defaultViewport || { width: 900, height: 1200 };
-        var cssWidth = Math.max(1, Math.round(vp.width || 0));
-        var cssHeight = Math.max(1, Math.round(vp.height || 0));
+        var cssWidth = Math.max(1, Math.round(Number(vp.width || 0)));
+        var cssHeight = Math.max(1, Math.round(Number(vp.height || 0)));
         pageContainer.style.width = cssWidth + 'px';
         pageContainer.style.height = cssHeight + 'px';
 
@@ -1121,6 +1221,7 @@
         }
         state.renderQueueMap[key] = true;
         state.renderQueue.push({ page: pageNumber, priority: priority || 0 });
+        state.metrics.queuedPages += 1;
         state.renderQueue.sort(function (a, b) {
             if (a.priority !== b.priority) {
                 return a.priority - b.priority;
@@ -1153,6 +1254,7 @@
             } catch (e) {}
             delete state.pages[pageNo];
             delete state.renderedPages[String(pageNo)];
+            state.metrics.prunedPages += 1;
 
             var shell = getPageElement(pageNo);
             if (shell) {
@@ -1175,7 +1277,7 @@
         if (!state.pdf) {
             return;
         }
-        var maxConcurrent = 2;
+        var maxConcurrent = getRenderConcurrency();
         while (state.renderInFlight < maxConcurrent && state.renderQueue.length) {
             var next = state.renderQueue.shift();
             var pageNo = next.page;
@@ -1233,6 +1335,25 @@
         });
     }
 
+
+    function ensureVisiblePagesQueued(from, to) {
+        if (!state.pdf) {
+            return;
+        }
+        var current = getCurrentPage();
+        for (var pageNo = from; pageNo <= to; pageNo++) {
+            var key = String(pageNo);
+            var pageEl = getPageElement(pageNo);
+            var canvas = pageEl ? pageEl.querySelector('canvas.tl-pdf-canvas') : null;
+            var hasBitmap = !!(canvas && canvas.width > 8 && canvas.height > 8);
+            var hasState = !!getPageState(pageNo);
+            if (!hasBitmap || !hasState || !state.renderedPages[key]) {
+                state.metrics.visibleWithoutBitmap += 1;
+                queueRenderPage(pageNo, -900 + Math.abs(pageNo - current));
+            }
+        }
+    }
+
     function scheduleRenderWindowUpdate(forceRefreshVisibleAnnotations) {
         if (!state.pdf) {
             return;
@@ -1244,26 +1365,32 @@
         requestAnimationFrame(function () {
             state.renderSchedulePending = false;
             var visible = getVisiblePageRange();
-            var before = 2;
-            var after = 3;
-            var from = Math.max(1, visible.from - before);
-            var to = Math.min(state.pdf.numPages, visible.to + after);
+            var fastScrolling = isFastScrollingNow();
+            var before = state.perfFlags.virtualizedRender ? (fastScrolling ? 1 : 2) : state.pdf.numPages;
+            var after = state.perfFlags.virtualizedRender ? (fastScrolling ? 1 : 3) : state.pdf.numPages;
+            var from = state.perfFlags.virtualizedRender ? Math.max(1, visible.from - before) : 1;
+            var to = state.perfFlags.virtualizedRender ? Math.min(state.pdf.numPages, visible.to + after) : state.pdf.numPages;
 
             var list = [];
             for (var p = from; p <= to; p++) {
                 list.push(p);
             }
-            maybeBatchPrefetchAnnotations(list);
+            if (!fastScrolling) {
+                maybeBatchPrefetchAnnotations(list);
+            }
 
             var current = getCurrentPage();
             for (var pageNo = from; pageNo <= to; pageNo++) {
                 queueRenderPage(pageNo, Math.abs(pageNo - current));
             }
+            ensureVisiblePagesQueued(visible.from, visible.to);
             processRenderQueue();
 
-            var keepFrom = Math.max(1, from - 2);
-            var keepTo = Math.min(state.pdf.numPages, to + 2);
-            pruneFarPages(keepFrom, keepTo);
+            if (state.perfFlags.aggressivePrune && !fastScrolling) {
+                var keepFrom = Math.max(1, from - 2);
+                var keepTo = Math.min(state.pdf.numPages, to + 2);
+                pruneFarPages(keepFrom, keepTo);
+            }
 
             if (forceRefreshVisibleAnnotations) {
                 for (var refreshPage = visible.from; refreshPage <= visible.to; refreshPage++) {
@@ -1286,14 +1413,18 @@
 
         var viewer = viewerEl();
         var targetPage = Math.max(1, Math.min(state.pdf.numPages, parseInt(state.initialPage || 1, 10) || 1));
-        if (viewer && state.savedScrollTop != null) {
-            viewer.scrollTop = Math.max(0, state.savedScrollTop);
-            state.savedScrollTop = null;
-        } else if (viewer) {
+        if (state.savedPosition && Number.isFinite(state.savedPosition.page)) {
+            targetPage = Math.max(1, Math.min(state.pdf.numPages, parseInt(state.savedPosition.page, 10) || 1));
+            state.restorePositionPending = {
+                page: targetPage,
+                ratio: Number.isFinite(state.savedPosition.ratio) ? state.savedPosition.ratio : null,
+                scrollTop: Number.isFinite(state.savedPosition.scrollTop) ? state.savedPosition.scrollTop : 0,
+                scale: Number.isFinite(state.savedPosition.scale) ? state.savedPosition.scale : state.scale
+            };
+        }
+        if (viewer) {
             var targetEl = getPageElement(targetPage);
-            if (targetEl && targetPage > 1) {
-                viewer.scrollTop = targetEl.offsetTop;
-            }
+            viewer.scrollTop = targetEl ? Math.max(0, targetEl.offsetTop) : 0;
         }
 
         scheduleRenderWindowUpdate(false);
@@ -1317,6 +1448,9 @@
     function drawAnnotationsForPage(pageNumber, annotations, forceDraw) {
         var pageState = getPageState(pageNumber);
         if (!pageState) {
+            queueRenderPage(pageNumber, -850);
+            processRenderQueue();
+            state.metrics.visibleWithoutBitmap += 1;
             return;
         }
         var key = String(pageNumber);
@@ -1426,11 +1560,23 @@
             var pixelRatio = window.devicePixelRatio || 1;
             var canvas = shell.canvas;
             var overlayHost = shell.overlayHost;
-            var cssWidth = Math.max(1, Math.round(cssViewport.width || 0));
-            var cssHeight = Math.max(1, Math.round(cssViewport.height || 0));
+            var cssWidth = Math.max(1, Math.round(Number(cssViewport.width || 0)));
+            var cssHeight = Math.max(1, Math.round(Number(cssViewport.height || 0)));
+            var fullscreen150 = isTheaterModeActive() && Math.abs((state.scale || 0) - 1.5) < 0.001;
+            var supersample = fullscreen150 ? 1.22 : 1;
+            var effectivePixelRatio = pixelRatio * supersample;
+            var renderScale = state.scale * effectivePixelRatio;
+            var renderViewport = page.getViewport({ scale: renderScale });
+            var maxCanvasPixels = fullscreen150 ? 13000000 : 18000000;
+            var viewportPixels = Number(renderViewport.width || 0) * Number(renderViewport.height || 0);
+            if (viewportPixels > maxCanvasPixels) {
+                var capRatio = Math.sqrt(maxCanvasPixels / viewportPixels);
+                renderScale = renderScale * capRatio;
+                renderViewport = page.getViewport({ scale: renderScale });
+            }
 
-            canvas.width = Math.max(1, Math.round(cssWidth * pixelRatio));
-            canvas.height = Math.max(1, Math.round(cssHeight * pixelRatio));
+            canvas.width = Math.max(1, Math.round(Number(renderViewport.width || 0)));
+            canvas.height = Math.max(1, Math.round(Number(renderViewport.height || 0)));
             canvas.style.width = cssWidth + 'px';
             canvas.style.height = cssHeight + 'px';
             overlayHost.style.width = cssWidth + 'px';
@@ -1450,20 +1596,17 @@
             canvasContext.setTransform(1, 0, 0, 1, 0, 0);
             canvasContext.fillStyle = '#ffffff';
             canvasContext.fillRect(0, 0, canvas.width, canvas.height);
-            canvasContext.imageSmoothingEnabled = true;
+            canvasContext.imageSmoothingEnabled = fullscreen150 ? true : !(state.scale >= 1.5);
             var renderContext = {
                 canvasContext: canvasContext,
-                viewport: cssViewport
+                viewport: renderViewport
             };
-            var transformX = canvas.width / Math.max(1, cssViewport.width || 1);
-            var transformY = canvas.height / Math.max(1, cssViewport.height || 1);
-            if (Math.abs(transformX - 1) > 0.0001 || Math.abs(transformY - 1) > 0.0001) {
-                renderContext.transform = [transformX, 0, 0, transformY, 0, 0];
-            }
 
             return page.render(renderContext).promise.then(function () {
                 initKonvaForPage(pageNumber, { width: cssWidth, height: cssHeight }, overlayHost);
                 state.renderedPages[key] = true;
+                state.metrics.renderedPagesCount += 1;
+                applyPendingSavedPosition(pageNumber);
 
                 var elapsed = Date.now() - state.metrics.renderStartTs;
                 if (state.metrics.firstPageRenderMs == null) {
@@ -2327,52 +2470,116 @@
         toggleBtn.setAttribute('data-tl-tooltip', state.showAllComments ? 'Hide all comments' : 'Show all comments');
         toggleBtn.removeAttribute('title');
     }
+    function getAnnotationGroupFromPage(pageNo, annotationId) {
+        var pageState = getPageState(pageNo);
+        if (!pageState || !pageState.annotationsById) {
+            return null;
+        }
+        return pageState.annotationsById[String(annotationId || '')] || null;
+    }
+
+    function ensurePageReady(pageNo, annotationId) {
+        var id = String(annotationId || '');
+        var maxWaitMs = state.perfFlags.strictEnsurePageReady ? 3200 : 1800;
+        var startedAt = Date.now();
+        var requestedNetwork = false;
+
+        return new Promise(function (resolve) {
+            function step() {
+                if (!state.pdf) {
+                    resolve(null);
+                    return;
+                }
+
+                queueRenderPage(pageNo, -1000);
+                processRenderQueue();
+                scheduleRenderWindowUpdate(false);
+
+                var viewer = viewerEl();
+                var pageEl = getPageElement(pageNo);
+                if (viewer && pageEl) {
+                    viewer.scrollTop = Math.max(0, pageEl.offsetTop - 24);
+                }
+
+                var pageState = getPageState(pageNo);
+                if (!pageState) {
+                    if ((Date.now() - startedAt) >= maxWaitMs) {
+                        resolve(null);
+                        return;
+                    }
+                    state.metrics.ensurePageReadyRetries += 1;
+                    setTimeout(step, 110);
+                    return;
+                }
+
+                var existing = getAnnotationGroupFromPage(pageNo, id);
+                if (!id || existing) {
+                    resolve(existing || null);
+                    return;
+                }
+
+                var opts = requestedNetwork
+                    ? { forceNetwork: false, forceDraw: true }
+                    : { forceNetwork: true, forceDraw: true };
+                requestedNetwork = true;
+
+                loadAndRenderAnnotations(pageNo, opts).finally(function () {
+                    var group = getAnnotationGroupFromPage(pageNo, id);
+                    if (group) {
+                        resolve(group);
+                        return;
+                    }
+                    if ((Date.now() - startedAt) >= maxWaitMs) {
+                        resolve(null);
+                        return;
+                    }
+                    state.metrics.ensurePageReadyRetries += 1;
+                    setTimeout(step, 110);
+                });
+            }
+            step();
+        });
+    }
+
     function navigateToAnnotation(annotationId, annotationType, page) {
         ensureCommentPanelVisible();
         var idStr = String(annotationId || '');
         var pageNo = parseInt(page, 10) || 1;
 
         function afterSelectScroll(group) {
-            if (!group) return;
+            if (!group) {
+                return;
+            }
             requestAnimationFrame(function () {
                 requestAnimationFrame(function () {
                     scrollViewerToAnnotationVerticalCenter(pageNo, group);
                     var currentPageInput = document.getElementById('currentPage');
-                    if (currentPageInput) currentPageInput.value = String(pageNo);
+                    if (currentPageInput) {
+                        currentPageInput.value = String(pageNo);
+                    }
                     updatePageCounter(pageNo);
                     updateDeleteButtonPosition();
                 });
             });
         }
 
-        function trySelect() {
-            var pageState = getPageState(pageNo);
-            var group = pageState && pageState.annotationsById && pageState.annotationsById[idStr];
+        ensurePageReady(pageNo, idStr).then(function (readyGroup) {
+            var group = readyGroup || getAnnotationGroupFromPage(pageNo, idStr);
             if (group) {
                 selectAnnotationFromNavigator(pageNo, group);
-                return group;
+                afterSelectScroll(group);
+            } else {
+                var viewer = viewerEl();
+                var pageEl = getPageElement(pageNo);
+                if (viewer && pageEl) {
+                    viewer.scrollTop = Math.max(0, pageEl.offsetTop - 24);
+                    updatePageCounter(pageNo);
+                }
             }
-            return null;
-        }
-
-        var selected = trySelect();
-        if (selected) {
-            afterSelectScroll(selected);
             loadCommentsForAnnotation(annotationId, annotationType);
-            return;
-        }
-        var loadPromise = loadAndRenderAnnotations(pageNo, true);
-        if (loadPromise && typeof loadPromise.then === 'function') {
-            loadPromise.then(function () {
-                var g = trySelect();
-                afterSelectScroll(g);
-                loadCommentsForAnnotation(annotationId, annotationType);
-            }).catch(function () {
-                loadCommentsForAnnotation(annotationId, annotationType);
-            });
-        } else {
+        }).catch(function () {
             loadCommentsForAnnotation(annotationId, annotationType);
-        }
+        });
     }
 
     function renderQuestionRows(list, entries) {
@@ -2525,6 +2732,8 @@
                 var annotationId   = btn.getAttribute('data-annotation-id');
                 var annotationType = btn.getAttribute('data-annotation-type');
                 var page           = parseInt(btn.getAttribute('data-page'), 10) || 1;
+                navigateToAnnotation(annotationId, annotationType, page);
+                return;
                 ensureCommentPanelVisible();
                 function finish() {
                     loadCommentsForAnnotation(annotationId, annotationType);
@@ -4336,6 +4545,17 @@ function fitTextboxAroundContent(annotationData) {
             pageState.transformer.nodes([group]);
             pageState.transformer.visible(true);
             pageState.overlayLayer.draw();
+        } else {
+            try {
+                group.opacity(0.9);
+                pageState.annotationLayer.draw();
+                setTimeout(function () {
+                    if (group && group.getLayer()) {
+                        group.opacity(1);
+                        pageState.annotationLayer.draw();
+                    }
+                }, 260);
+            } catch (e) {}
         }
         showDeleteButton();
     }
@@ -4710,6 +4930,12 @@ function fitTextboxAroundContent(annotationData) {
         var stored = null;
         if (page !== 1) {
             state.initialPage = page;
+            state.savedPosition = {
+                page: state.initialPage,
+                ratio: 0,
+                scrollTop: 0,
+                scale: 1.33
+            };
         } else {
             try {
                 var raw = typeof localStorage !== 'undefined' && localStorage.getItem(posKey);
@@ -4717,11 +4943,23 @@ function fitTextboxAroundContent(annotationData) {
             } catch (e) {}
             if (stored && typeof stored.page === 'number' && stored.page >= 1) {
                 state.initialPage = stored.page;
-                state.savedScrollTop = typeof stored.scrollTop === 'number' ? stored.scrollTop : 0;
+                state.savedPosition = {
+                    page: state.initialPage,
+                    ratio: Number.isFinite(stored.ratio) ? clampNumber(stored.ratio, 0, 1) : null,
+                    scrollTop: Number.isFinite(stored.scrollTop) ? stored.scrollTop : 0,
+                    scale: 1.33
+                };
             } else {
                 state.initialPage = 1;
+                state.savedPosition = null;
             }
         }
+        state.restorePositionPending = state.savedPosition ? {
+            page: state.savedPosition.page,
+            ratio: state.savedPosition.ratio,
+            scrollTop: state.savedPosition.scrollTop,
+            scale: state.savedPosition.scale
+        } : null;
         state.annoid = annoid;
         state.commid = commid;
         state.editorSettings = editorSettings || {};
@@ -4735,10 +4973,11 @@ function fitTextboxAroundContent(annotationData) {
             return;
         }
 
-        state.scale = 1.33;
+        var restoredScale = 1.33;
+        state.scale = restoredScale;
         var defaultScale = document.querySelector('select.scale');
         if (defaultScale) {
-            defaultScale.value = '1.33';
+            defaultScale.value = String(restoredScale);
         }
 
         if (window.Konva) {
@@ -4794,6 +5033,11 @@ function fitTextboxAroundContent(annotationData) {
     }
 
     function startIndexCompat() {
+
+    window.tlPdfRuntimeStats = function () {
+        return JSON.parse(JSON.stringify(state.metrics || {}));
+    };
+
         var args = Array.prototype.slice.call(arguments);
         if (args.length > 1) {
             var first = args[0];
