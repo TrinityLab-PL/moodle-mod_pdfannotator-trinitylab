@@ -1990,7 +1990,6 @@ body.tl-pdf-fullscreen svg.annotationLayer {
 #viewer .tl-pdf-canvas {
     display: block;
     image-rendering: auto;
-    image-rendering: -webkit-optimize-contrast;
 }
 
 #viewer .tl-konva-host {
@@ -2456,7 +2455,6 @@ body.tl-pdf-fullscreen .path-mod-pdfannotator .tl-save-textbox {
     -webkit-font-smoothing: subpixel-antialiased;
     -moz-osx-font-smoothing: auto;
     text-rendering: geometricPrecision;
-    transform: translateZ(0);
 }
 
 .tl-inline-text-editor:focus,
@@ -2479,7 +2477,6 @@ body.tl-pdf-fullscreen .path-mod-pdfannotator .tl-save-textbox {
     -webkit-font-smoothing: subpixel-antialiased;
     -moz-osx-font-smoothing: auto;
     text-rendering: geometricPrecision;
-    transform: translateZ(0);
 }
 
 

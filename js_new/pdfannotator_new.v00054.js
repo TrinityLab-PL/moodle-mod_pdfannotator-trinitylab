@@ -129,7 +129,34 @@
         if (isTheaterModeActive() && state.scale >= 1.5) {
             return 1;
         }
+        // Balance profile: normal view 200% favors smoothness over parallel render bursts.
+        if (!isTheaterModeActive() && state.scale >= 2) {
+            return 1;
+        }
         return 2;
+    }
+
+    function scheduleTheaterZoomReflow() {
+        if (!isTheaterModeActive() || !state.pdf) {
+            return;
+        }
+        var cw = document.getElementById('content-wrapper');
+        if (cw) {
+            var sel = document.querySelector('select.scale, [data-proxy-action="zoom-select"]');
+            var zv = sel ? parseFloat(sel.value) : NaN;
+            if (Number.isFinite(zv) && zv >= 2.0) {
+                cw.classList.add('zoom-200');
+            } else {
+                cw.classList.remove('zoom-200');
+            }
+        }
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                if (state.pdf) {
+                    scheduleRenderWindowUpdate(true);
+                }
+            });
+        });
     }
 
     function getPageElement(pageNumber) {
@@ -513,7 +540,11 @@
                     return;
                 }
                 state.scale = val;
-                renderDocument();
+                if (isTheaterModeActive()) {
+                    rerenderAfterDisplayModeChange(90);
+                } else {
+                    renderDocument();
+                }
             });
         }
 
@@ -574,13 +605,21 @@
         if (scaleSelect) {
             scaleSelect.value = String(state.scale);
         }
-        renderDocument();
+        if (isTheaterModeActive()) {
+            rerenderAfterDisplayModeChange(90);
+        } else {
+            renderDocument();
+        }
     }
 
-    function getCurrentPage() {
+    function getCurrentPage(forceRecalc) {
         var viewer = viewerEl();
         if (!viewer) {
             return 1;
+        }
+        var now = Date.now();
+        if (!forceRecalc && Number.isFinite(state.currentPageCache) && state.currentPageCacheTs && (now - state.currentPageCacheTs) < 90) {
+            return state.currentPageCache;
         }
         var pages = viewer.querySelectorAll('.page');
         var top = viewer.scrollTop;
@@ -590,6 +629,8 @@
                 candidate = parseInt(page.getAttribute('data-page-number') || '1', 10);
             }
         });
+        state.currentPageCache = candidate;
+        state.currentPageCacheTs = now;
         return candidate;
     }
 
@@ -620,7 +661,7 @@
             state.lastScrollTop = topNow;
             state.lastScrollTs = now;
 
-            var current = getCurrentPage();
+            var current = getCurrentPage(true);
             var currentPageInput = document.getElementById('currentPage');
             if (currentPageInput) {
                 currentPageInput.value = String(current);
@@ -636,7 +677,7 @@
             savePosTimer = setTimeout(function () {
                 var key = 'pdfannotator_pos_' + state.contextId;
                 if (state.contextId != null) {
-                    var p = getCurrentPage();
+                    var p = getCurrentPage(true);
                     var top = viewer.scrollTop;
                     var saved = buildSavedPosition(p, top);
                     saved.v = 2;
@@ -727,10 +768,12 @@
         hiddenElements: []
     };
 
-    function rerenderAfterDisplayModeChange(delayMs) {
+    function rerenderAfterDisplayModeChange(delayMs, options) {
         if (!state.pdf) {
             return;
         }
+        var opts = options || {};
+        var gentle = !!opts.gentle;
         var delay = Number.isFinite(delayMs) ? delayMs : 220;
         if (state.displayModeRerenderTimer) {
             clearTimeout(state.displayModeRerenderTimer);
@@ -755,9 +798,9 @@
             renderDocument();
             setTimeout(function () {
                 if (state.pdf) {
-                    scheduleRenderWindowUpdate(true);
+                    scheduleRenderWindowUpdate(!gentle);
                 }
-            }, 220);
+            }, gentle ? 120 : 220);
         }, delay);
     }
 
@@ -798,7 +841,7 @@
         theaterState.enabled = false;
         var btnOff = document.querySelector('[data-proxy-action="fullscreen"]');
         if (btnOff) { btnOff.innerHTML = '<svg viewBox="0 0 2300 2300" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke="rgb(59,62,62)" stroke-width="200" stroke-linecap="round" stroke-linejoin="round" d="M 125,126 L 125,826 M 825,126 L 125,126 M 125,2174 L 125,1474 M 825,2174 L 125,2174 M 2176,126 L 2176,826 M 1476,126 L 2176,126 M 2176,2174 L 2176,1474 M 1476,2174 L 2176,2174"/></svg>'; }
-        rerenderAfterDisplayModeChange(360);
+        rerenderAfterDisplayModeChange(360, { gentle: true });
     }
     window.tlToggleTheaterMode = toggleTheaterMode;
 
@@ -1019,7 +1062,11 @@
             if (oldSelect) {
                 oldSelect.value = String(val);
             }
-            renderDocument();
+            if (isTheaterModeActive()) {
+                rerenderAfterDisplayModeChange(90);
+            } else {
+                renderDocument();
+            }
         });
         shell.querySelector('[data-proxy-action="prev-page"]').addEventListener('click', function () {
             scrollToPage(Math.max(1, getCurrentPage() - 1));
@@ -1184,6 +1231,10 @@
         }
         var top = viewer.scrollTop;
         var bottom = top + viewer.clientHeight;
+        if (isFastScrollingNow() && total > 24) {
+            var c = getCurrentPage();
+            return { from: c, to: c };
+        }
         var pages = viewer.querySelectorAll('.page');
         var first = 0;
         var last = 0;
@@ -1562,21 +1613,17 @@
             var overlayHost = shell.overlayHost;
             var cssWidth = Math.max(1, Math.round(Number(cssViewport.width || 0)));
             var cssHeight = Math.max(1, Math.round(Number(cssViewport.height || 0)));
-            var fullscreen150 = isTheaterModeActive() && Math.abs((state.scale || 0) - 1.5) < 0.001;
-            var supersample = fullscreen150 ? 1.22 : 1;
-            var effectivePixelRatio = pixelRatio * supersample;
-            var renderScale = state.scale * effectivePixelRatio;
+            var theatre150 = isTheaterModeActive() && Math.abs((state.scale || 0) - 1.5) < 0.0001;
+            var renderScale = state.scale * pixelRatio;
             var renderViewport = page.getViewport({ scale: renderScale });
-            var maxCanvasPixels = fullscreen150 ? 13000000 : 18000000;
-            var viewportPixels = Number(renderViewport.width || 0) * Number(renderViewport.height || 0);
-            if (viewportPixels > maxCanvasPixels) {
-                var capRatio = Math.sqrt(maxCanvasPixels / viewportPixels);
-                renderScale = renderScale * capRatio;
-                renderViewport = page.getViewport({ scale: renderScale });
-            }
 
-            canvas.width = Math.max(1, Math.round(Number(renderViewport.width || 0)));
-            canvas.height = Math.max(1, Math.round(Number(renderViewport.height || 0)));
+            if (theatre150) {
+                canvas.width = Math.max(1, Math.round(cssWidth * pixelRatio));
+                canvas.height = Math.max(1, Math.round(cssHeight * pixelRatio));
+            } else {
+                canvas.width = Math.max(1, Math.round(Number(renderViewport.width || 0)));
+                canvas.height = Math.max(1, Math.round(Number(renderViewport.height || 0)));
+            }
             canvas.style.width = cssWidth + 'px';
             canvas.style.height = cssHeight + 'px';
             overlayHost.style.width = cssWidth + 'px';
@@ -1596,11 +1643,21 @@
             canvasContext.setTransform(1, 0, 0, 1, 0, 0);
             canvasContext.fillStyle = '#ffffff';
             canvasContext.fillRect(0, 0, canvas.width, canvas.height);
-            canvasContext.imageSmoothingEnabled = fullscreen150 ? true : !(state.scale >= 1.5);
-            var renderContext = {
-                canvasContext: canvasContext,
-                viewport: renderViewport
-            };
+            var theatre100 = isTheaterModeActive() && Math.abs((state.scale || 0) - 1) < 0.0001;
+            canvasContext.imageSmoothingEnabled = theatre100 ? false : !(state.scale >= 1.5);
+            var renderContext;
+            if (theatre150) {
+                renderContext = {
+                    canvasContext: canvasContext,
+                    viewport: cssViewport,
+                    transform: [canvas.width / Math.max(1, cssViewport.width || 1), 0, 0, canvas.height / Math.max(1, cssViewport.height || 1), 0, 0]
+                };
+            } else {
+                renderContext = {
+                    canvasContext: canvasContext,
+                    viewport: renderViewport
+                };
+            }
 
             return page.render(renderContext).promise.then(function () {
                 initKonvaForPage(pageNumber, { width: cssWidth, height: cssHeight }, overlayHost);

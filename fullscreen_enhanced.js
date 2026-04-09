@@ -180,25 +180,20 @@
             // Ukryj wszystko poza PDF
             document.body.classList.add('tl-pdf-fullscreen');
 
-            // Zoom 200% fix
-            var lastScale = 1.0;
-            setInterval(function() {
-                var svg = document.querySelector('svg[data-pdf-annotate-viewport]');
-                if (!svg) return;
-                var viewport = JSON.parse(svg.getAttribute('data-pdf-annotate-viewport'));
-                var currentScale = viewport.scale;
-                
-                if (currentScale !== lastScale) {
-                    lastScale = currentScale;
-                    var cw = document.getElementById('content-wrapper');
-                    
-                    if (currentScale >= 2.0) {
-                        if (cw) cw.classList.add('zoom-200');
-                    } else {
-                        if (cw) cw.classList.remove('zoom-200');
-                    }
+            // Zoom 200%: sync class once (no 50ms polling — avoids reflow/blur during toolbar zoom)
+            (function syncZoom200Class() {
+                var cw = document.getElementById('content-wrapper');
+                if (!cw) {
+                    return;
                 }
-            }, 50);
+                var sel = document.querySelector('select.scale, [data-proxy-action="zoom-select"]');
+                var v = sel ? parseFloat(sel.value) : NaN;
+                if (Number.isFinite(v) && v >= 2.0) {
+                    cw.classList.add('zoom-200');
+                } else {
+                    cw.classList.remove('zoom-200');
+                }
+            })();
             document.documentElement.style.height = '100%';
             document.body.style.height = '100%';
             
@@ -303,7 +298,10 @@
 // Globalna funkcja do fixowania layoutu wielostronicowych PDF
 window.fixMultipagePDFLayout = function() {
     if (!document.body.classList.contains('tl-pdf-fullscreen')) return;
-    
+    if (document.querySelector('#viewer .page.tl-page-shell')) {
+        return;
+    }
+
     const pages = document.querySelectorAll('#viewer .page');
     if (pages.length <= 1) return;
     
@@ -328,17 +326,13 @@ window.fixMultipagePDFLayout = function() {
     }
 };
 
-// Wymuszaj pozycje co 100ms
+// Legacy position enforcer disabled (new viewer manages page flow).
 let positionInterval = null;
 function startPositionEnforcer() {
-    if (positionInterval) clearInterval(positionInterval);
-    positionInterval = setInterval(() => {
-        if (document.body.classList.contains('tl-pdf-fullscreen')) {
-//             window.fixMultipagePDFLayout();
-        } else {
-            clearInterval(positionInterval);
-        }
-    }, 100);
+    if (positionInterval) {
+        clearInterval(positionInterval);
+        positionInterval = null;
+    }
 }
 
 // Uruchom przy fullscreen
@@ -354,6 +348,9 @@ document.addEventListener('fullscreenchange', function() {
 // Reset po wyjściu
 document.addEventListener('fullscreenchange', function() {
     if (!document.fullscreenElement) {
+        if (document.querySelector('#viewer .page.tl-page-shell')) {
+            return;
+        }
         const pages = document.querySelectorAll('#viewer .page');
         pages.forEach(page => {
             page.style.position = '';
@@ -367,12 +364,12 @@ document.addEventListener('fullscreenchange', function() {
     }
 });
 
-// Obsługa zoom
+// Obsługa zoom (legacy relayout disabled for new viewer)
 setTimeout(function() {
     const scaleSelect = document.querySelector('.scale');
     if (scaleSelect) {
         scaleSelect.addEventListener('change', function() {
-            if (document.body.classList.contains('tl-pdf-fullscreen')) {
+            if (document.body.classList.contains('tl-pdf-fullscreen') && !document.querySelector('#viewer .page.tl-page-shell')) {
                 setTimeout(() => window.fixMultipagePDFLayout(), 500);
             }
         });
@@ -418,21 +415,7 @@ const modalObserver = new MutationObserver(function(mutations) {
 modalObserver.observe(document.body, { childList: true, subtree: true });
 
 
-// Przenieś modal do fullscreen
-setInterval(function() {
-    if (!document.body.classList.contains('tl-pdf-fullscreen')) return;
-    const modal = document.querySelector('.modal');
-    const backdrop = document.querySelector('.modal-backdrop');
-    const container = document.querySelector('#pdfannotator_index');
-    
-    if (backdrop) backdrop.style.display = 'none';
-    
-    if (modal && container && !container.contains(modal)) {
-        container.appendChild(modal);
-        modal.style.zIndex = '999999999';
-        modal.style.position = 'fixed';
-    }
-}, 100);
+// Przenieś modal do fullscreen (polling disabled; MutationObserver handles this path)
 
 // Fix overlay position
 document.addEventListener('DOMNodeInserted', function(e) {
