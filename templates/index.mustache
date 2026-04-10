@@ -1,7 +1,7 @@
 <!--working:-->
 <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.js"></script>-->
 
-<div id='pdfannotator_index' class='pdfannotator_index' data-default-fullscreen="{{defaultfullscreen}}">
+<div id='pdfannotator_index' class='pdfannotator_index tl-layout-v4' data-default-fullscreen="{{defaultfullscreen}}" data-comments-state="closed">
 
     <div class="row">
         <div id="pdftoolbar" class="toolbar col-md-12">
@@ -112,10 +112,10 @@
 
   
     <div class="row-fluid row" id="body-wrapper">
-        <div class="span8 col-lg-8" id="content-wrapper">
+        <div class="tl-v4-content" id="content-wrapper">
             <div id="viewer" class="pdfViewer"></div>
         </div>
-        <div class="span4 col-lg-4 tl-comments-hidden" id="comment-wrapper">
+        <div class="tl-comments-hidden tl-v4-comments" id="comment-wrapper">
                 <h4>Questions &amp; Comments</h4>
                 <div id="comment-nav">
                     <button id="toggleAllCommentsList" class="btn-link" title="Show all comments" style="display:inline-flex;align-items:center;gap:5px;font-family:'Open Sans',Arial,sans-serif;font-weight:300;">

@@ -55,6 +55,34 @@ governed by the project's own license (see Moodle and plugin documentation).
     SOFTWARE.
 
 --------------------------------------------------------------------------------
+2. PDF.js / pdfjs-dist (PDF rendering in the browser)
+--------------------------------------------------------------------------------
+
+  Component name:   PDF.js (Mozilla pdf.js / npm pdfjs-dist)
+  Copyright:        Copyright 2022 Mozilla Foundation (see @licstart block in each bundled file)
+  Project / source: https://github.com/mozilla/pdf.js
+  License:          Apache License, Version 2.0
+
+  Files included in this plugin:
+    - mod/pdfannotator/lib/pdfjs/pdf.min.js
+    - mod/pdfannotator/lib/pdfjs/pdf.worker.min.js
+
+  Full license text (verbatim copy of Apache-2.0):
+    mod/pdfannotator/lib/pdfjs/LICENSE-APACHE-2.0.txt
+
+  Short attribution / pointers:
+    mod/pdfannotator/lib/pdfjs/PDFJS-ATTRIBUTION.txt
+
+  Purpose:
+    In-browser PDF parsing and rendering for the PDF Annotator activity;
+    the scripts are registered in locallib.php.
+
+  Embedded notice:
+    The minified bundles include the Mozilla @licstart / @licend Apache-2.0
+    header comment at the top of each file.
+
+
+--------------------------------------------------------------------------------
 End of third-party attributions. Add new entries above when new components
 are included.
 ================================================================================

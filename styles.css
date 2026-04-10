@@ -1887,17 +1887,17 @@ body.tl-pdf-fullscreen #viewer .page {
 }
 
 /* CC button - hide comments section */
-.tl-comments-hidden {
+#pdfannotator_index:not(.tl-layout-v4) #pdfannotator_index:not(.tl-layout-v4) .tl-comments-hidden {
     display: none !important;
 }
 
-body:not(.tl-pdf-fullscreen) #body-wrapper:has(#comment-wrapper.tl-comments-hidden) .col-lg-8 {
+body:not(.tl-pdf-fullscreen) #pdfannotator_index:not(.tl-layout-v4) #body-wrapper:has(#comment-wrapper.tl-comments-hidden) .col-lg-8 {
     flex: 0 0 100% !important;
     max-width: 100% !important;
 }
 
 /* Fullscreen: comments column positioning */
-body.tl-pdf-fullscreen #comment-wrapper {
+body.tl-pdf-fullscreen #pdfannotator_index:not(.tl-layout-v4) #comment-wrapper {
     position: fixed !important;
     right: 0.5em !important;
     top: 80px !important;
@@ -1914,7 +1914,7 @@ body.tl-pdf-fullscreen #comment-wrapper {
     display: none !important;
 }
 
-body:not(.tl-pdf-fullscreen) #body-wrapper:has(#comment-wrapper.tl-comments-hidden) .col-lg-8 {
+body:not(.tl-pdf-fullscreen) #pdfannotator_index:not(.tl-layout-v4) #body-wrapper:has(#comment-wrapper.tl-comments-hidden) .col-lg-8 {
     flex: 0 0 100% !important;
     max-width: 100% !important;
 }
@@ -2738,12 +2738,12 @@ body:not(.tl-pdf-fullscreen) #viewer {
 }
 
 /* TL_NORMAL_VIEW_LAYOUT_KK */
-body:not(.tl-pdf-fullscreen) #body-wrapper {
+body:not(.tl-pdf-fullscreen) #pdfannotator_index:not(.tl-layout-v4) #body-wrapper {
     position: relative !important;
     display: block !important;
 }
 
-body:not(.tl-pdf-fullscreen) #content-wrapper {
+body:not(.tl-pdf-fullscreen) #pdfannotator_index:not(.tl-layout-v4) #content-wrapper {
     width: 100% !important;
     max-width: 100% !important;
     flex: none !important;
@@ -2763,7 +2763,7 @@ body:not(.tl-pdf-fullscreen) #content-wrapper #viewer {
     margin: 0 auto !important;
 }
 
-body:not(.tl-pdf-fullscreen) #comment-wrapper {
+body:not(.tl-pdf-fullscreen) #pdfannotator_index:not(.tl-layout-v4) #comment-wrapper {
     position: absolute !important;
     right: 0 !important;
     top: 0 !important;
@@ -3541,6 +3541,145 @@ body.tl-pdf-fullscreen.path-mod-pdfannotator #viewer {
         flex: 1 1 auto !important;
         width: 100% !important;
         max-width: 100% !important;
+    }
+}
+
+/* TL_LAYOUT_REBUILD_V4 — isolated layout contract for PDF vs comments (no inner comment style changes) */
+#pdfannotator_index.tl-layout-v4 {
+    --tl-v4-comment-width: clamp(320px, 24vw, 440px);
+    --tl-v4-column-gap: 12px;
+}
+
+#pdfannotator_index.tl-layout-v4 #body-wrapper {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) var(--tl-v4-comment-width) !important;
+    column-gap: var(--tl-v4-column-gap) !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+}
+
+#pdfannotator_index.tl-layout-v4 #content-wrapper {
+    min-width: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+    display: block !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+#pdfannotator_index.tl-layout-v4 #viewer {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding-right: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* TL_V4_RIGHT_EDGE_ANCHOR */
+#pdfannotator_index.tl-layout-v4 #viewer .page {
+    margin-left: auto !important;
+    margin-right: 0 !important;
+}
+
+#pdfannotator_index.tl-layout-v4 #comment-wrapper {
+    position: static !important;
+    right: auto !important;
+    top: auto !important;
+    min-width: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    margin-top: 0 !important;
+    z-index: auto !important;
+    display: block !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+#pdfannotator_index.tl-layout-v4[data-comments-state="closed"] #comment-wrapper,
+#pdfannotator_index.tl-layout-v4 #comment-wrapper.tl-comments-hidden {
+    display: block !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    overflow: hidden !important;
+}
+
+body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    /* Outer gutter (~30% of former 24px): toolbar closer to viewport edges */
+    --tl-v4-theatre-edge-gutter: 7px;
+    /* Extra inset: PDF+comments column block slightly narrower than toolbar (red-line alignment) */
+    --tl-v4-theatre-content-inset: 8px;
+    --tl-v4-comment-width: calc(clamp(320px, 24vw, 440px) + 1vw);
+    padding-left: var(--tl-v4-theatre-edge-gutter) !important;
+    padding-right: var(--tl-v4-theatre-edge-gutter) !important;
+}
+
+body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 > .row:first-of-type {
+    flex: 0 0 auto !important;
+}
+
+body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #body-wrapper {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: calc(100vh - 60px) !important;
+    margin-left: var(--tl-v4-theatre-content-inset) !important;
+    margin-right: var(--tl-v4-theatre-content-inset) !important;
+    box-sizing: border-box !important;
+}
+
+body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #content-wrapper {
+    height: 100% !important;
+    min-height: 0 !important;
+}
+
+body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #viewer {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding-right: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #comment-wrapper {
+    position: static !important;
+    right: auto !important;
+    top: auto !important;
+    height: 100% !important;
+}
+
+body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4.zoom-200 #content-wrapper {
+    min-width: 0 !important;
+    max-width: none !important;
+}
+
+@media (max-width: 991.98px) {
+    #pdfannotator_index.tl-layout-v4 #body-wrapper {
+        display: block !important;
+    }
+
+    #pdfannotator_index.tl-layout-v4 #content-wrapper,
+    #pdfannotator_index.tl-layout-v4 #comment-wrapper {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #body-wrapper {
+        height: auto !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
     }
 }
 
