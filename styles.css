@@ -1022,11 +1022,11 @@ body {
 
 /******************************************** START: mainly for overview page *******************************************/
 
-/* Boost drawers: main column padding (theme uses 15px from 768px); use 2.2em in this activity. */
+/* Boost drawers: more horizontal room in normal view only (not theatre / tl-pdf-fullscreen). */
 @media (min-width: 768px) {
-    .path-mod-pdfannotator #page.drawers div[role="main"] {
-        padding-left: 2.2em;
-        padding-right: 2.2em;
+    body.path-mod-pdfannotator:not(.tl-pdf-fullscreen) #page.drawers div[role="main"] {
+        padding-left: 0;
+        padding-right: 0.8em;
     }
 }
 
@@ -3571,6 +3571,11 @@ body.tl-pdf-fullscreen.path-mod-pdfannotator #viewer {
     overflow-y: hidden !important;
 }
 
+/* Normal view v4: left gutter for H5P icons (~4–5vw); theatre unchanged */
+body:not(.tl-pdf-fullscreen) #pdfannotator_index.tl-layout-v4 #content-wrapper {
+    padding-left: clamp(16px, 4.5vw, 64px) !important;
+}
+
 #pdfannotator_index.tl-layout-v4 #viewer {
     width: 100% !important;
     max-width: 100% !important;
@@ -3616,11 +3621,13 @@ body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 {
     align-items: stretch !important;
     overflow: hidden !important;
     box-sizing: border-box !important;
-    /* Outer gutter (~30% of former 24px): toolbar closer to viewport edges */
-    --tl-v4-theatre-edge-gutter: 7px;
-    /* Extra inset: PDF+comments column block slightly narrower than toolbar (red-line alignment) */
-    --tl-v4-theatre-content-inset: 8px;
-    --tl-v4-comment-width: calc(clamp(320px, 24vw, 440px) + 1vw);
+    /* Symmetric gutter on index: toolbar spans nearly full width; insets live on #body-wrapper */
+    --tl-v4-theatre-edge-gutter: clamp(4px, 0.5vw, 10px);
+    /* Larger left (H5P) / small right — padding on #body-wrapper only (border-box, no margin overflow) */
+    --tl-v4-theatre-inset-left: clamp(12px, 5vw, 96px);
+    --tl-v4-theatre-inset-right: clamp(4px, 0.65vw, 10px);
+    /* Wider comments in theatre (~+2.5vw vs base clamp), PDF column pays */
+    --tl-v4-comment-width: calc(clamp(320px, 24vw, 440px) + 2.5vw);
     padding-left: var(--tl-v4-theatre-edge-gutter) !important;
     padding-right: var(--tl-v4-theatre-edge-gutter) !important;
 }
@@ -3632,9 +3639,12 @@ body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 > .row:first-of-type {
 body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #body-wrapper {
     flex: 1 1 auto !important;
     min-height: 0 !important;
+    min-width: 0 !important;
     height: calc(100vh - 60px) !important;
-    margin-left: var(--tl-v4-theatre-content-inset) !important;
-    margin-right: var(--tl-v4-theatre-content-inset) !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: var(--tl-v4-theatre-inset-left) !important;
+    padding-right: var(--tl-v4-theatre-inset-right) !important;
     box-sizing: border-box !important;
 }
 
@@ -3658,6 +3668,8 @@ body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #comment-wrapper {
     right: auto !important;
     top: auto !important;
     height: 100% !important;
+    padding-right: clamp(4px, 0.65vw, 10px) !important;
+    box-sizing: border-box !important;
 }
 
 body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4.zoom-200 #content-wrapper {
