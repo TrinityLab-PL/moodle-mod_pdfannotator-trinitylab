@@ -93,7 +93,7 @@ if (isset($pdfannotator->defaultfullscreen) && $pdfannotator->defaultfullscreen)
 }
 // Trinity Lab: Load enhanced fullscreen module
 // Hotfix: disable missing AMD module that can break page bootstrap.
-$PAGE->requires->js('/mod/pdfannotator/fullscreen_enhanced.js?ver=00055', false);
+$PAGE->requires->js('/mod/pdfannotator/fullscreen_enhanced.js?ver=00056', false);
 $PAGE->requires->css('/mod/pdfannotator/lib/shoelace/dist/themes/light.css');
 
 // Overview: body class for drawer inset CSS (must run before $OUTPUT->header()).

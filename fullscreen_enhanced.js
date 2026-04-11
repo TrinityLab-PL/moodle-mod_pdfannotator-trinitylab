@@ -59,13 +59,7 @@
         console.log('TL Fullscreen: patching New UI fullscreen button');
         btn.setAttribute('data-tl-patched', '1');
         btn.id = 'tl-fullscreen-btn';
-        btn.style.minWidth = '42px';
-        btn.style.minHeight = '38px';
-        btn.style.fontSize = '22px';
-        btn.style.display = 'inline-flex';
-        btn.style.alignItems = 'center';
-        btn.style.justifyContent = 'center';
-        btn.style.lineHeight = '0';
+        btn.classList.add('tl-fullscreen-proxy-btn');
         setFullscreenButtonStateGeneric(btn, !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement));
         function onFullscreenChange() {
             var inFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
@@ -75,33 +69,6 @@
         document.addEventListener('webkitfullscreenchange', onFullscreenChange);
         document.addEventListener('mozfullscreenchange', onFullscreenChange);
         document.addEventListener('msfullscreenchange', onFullscreenChange);
-        // #region agent log
-        requestAnimationFrame(function() {
-            var icon = btn.querySelector('i');
-            var commentsBtn = document.querySelector('[data-proxy-action="toggle-comments"]');
-            var csBtn = window.getComputedStyle(btn);
-            var csIcon = icon ? window.getComputedStyle(icon) : {};
-            var csComments = commentsBtn ? window.getComputedStyle(commentsBtn) : {};
-            var rBtn = btn.getBoundingClientRect();
-            var rIcon = icon ? icon.getBoundingClientRect() : null;
-            var rComments = commentsBtn ? commentsBtn.getBoundingClientRect() : null;
-            var iconOffsetTop = rIcon && rBtn ? rIcon.top - rBtn.top : null;
-            var payload = {
-                sessionId: '29f286',
-                runId: 'align-debug',
-                hypothesisId: 'A',
-                location: 'fullscreen_enhanced.js:patchNewUIFullscreenButton',
-                message: 'Fullscreen vs Comments button alignment',
-                data: {
-                    fsBtn: { lineHeight: csBtn.lineHeight, height: csBtn.height, paddingTop: csBtn.paddingTop, paddingBottom: csBtn.paddingBottom, alignItems: csBtn.alignItems, rect: { top: rBtn.top, height: rBtn.height } },
-                    fsIcon: icon ? { lineHeight: csIcon.lineHeight, fontSize: csIcon.fontSize, display: csIcon.display, rect: { top: rIcon.top, height: rIcon.height }, offsetTopInBtn: iconOffsetTop, expectedCenter: rBtn.height / 2 - rIcon.height / 2 } : null,
-                    commentsBtn: commentsBtn ? { lineHeight: csComments.lineHeight, height: csComments.height, rect: { top: rComments.top, height: rComments.height } } : null
-                },
-                timestamp: Date.now()
-            };
-            fetch('http://localhost:53261/ingest/92a1b3d4-61b3-42a6-84e0-3064bb7202b1', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '29f286' }, body: JSON.stringify(payload) }).catch(function() {});
-        });
-        // #endregion
         return btn;
     }
 
@@ -253,10 +220,12 @@
 })();
 
 
-// Toggle komentarzy - JEDYNY
+// Toggle komentarzy - JEDYNY (skipped for tl-layout-v4 — pdfannotator_new handles state)
 (function() {
     setTimeout(function() {
     console.log("CC setTimeout start");
+        var rootV4 = document.querySelector('#pdfannotator_index.tl-layout-v4');
+        if (rootV4) { console.log('CC skipped: tl-layout-v4'); return; }
         var wrapper = document.querySelector('#comment-wrapper');
         var toolbarContent = document.querySelector('#toolbarContent');
         var fullscreenBtn = document.querySelector('#tl-fullscreen-btn');
@@ -298,6 +267,7 @@
 // Globalna funkcja do fixowania layoutu wielostronicowych PDF
 window.fixMultipagePDFLayout = function() {
     if (!document.body.classList.contains('tl-pdf-fullscreen')) return;
+    if (document.querySelector('#pdfannotator_index.tl-layout-v4')) return;
     if (document.querySelector('#viewer .page.tl-page-shell')) {
         return;
     }

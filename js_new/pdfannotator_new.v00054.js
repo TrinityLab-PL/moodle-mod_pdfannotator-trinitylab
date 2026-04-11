@@ -52,6 +52,7 @@
         displayModeRerenderTimer: null,
         layoutReflowTimer: null,
         layoutRev: 0,
+        theatreTransitionUntilTs: 0,
         lastScrollTop: 0,
         lastScrollTs: 0,
         fastScrollUntilTs: 0,
@@ -219,6 +220,10 @@
             syncZoomUiState();
             return;
         }
+        if (isTheatreLayoutTransitionBusy()) {
+            syncZoomUiState();
+            return;
+        }
         var opts = options || {};
         var delay = Number.isFinite(opts.delayMs) ? opts.delayMs : 90;
         var gentle = !!opts.gentle;
@@ -301,6 +306,38 @@
         }
         var viewer = viewerEl();
         var pageEl = getPageElement(renderedPageNo);
+        if (!viewer || !pageEl) {
+            return;
+        }
+        var targetTop;
+        if (Number.isFinite(pending.ratio)) {
+            targetTop = pageEl.offsetTop + (Math.max(0, Math.min(1, pending.ratio)) * Math.max(1, pageEl.offsetHeight || 1));
+        } else {
+            targetTop = Number.isFinite(pending.scrollTop) ? pending.scrollTop : pageEl.offsetTop;
+        }
+        var maxScroll = Math.max(0, viewer.scrollHeight - viewer.clientHeight);
+        viewer.scrollTop = Math.max(0, Math.min(maxScroll, Math.round(targetTop)));
+        state.restorePositionPending = null;
+        state.savedPosition = null;
+    }
+
+    function isTheatreLayoutTransitionBusy() {
+        return Date.now() < (state.theatreTransitionUntilTs || 0);
+    }
+
+    function markTheatreLayoutTransition(extraMs) {
+        var ms = Number.isFinite(extraMs) ? extraMs : 450;
+        var until = Date.now() + ms;
+        state.theatreTransitionUntilTs = Math.max(state.theatreTransitionUntilTs || 0, until);
+    }
+
+    function restoreScrollAfterTheatreLayoutIfPossible() {
+        var pending = state.restorePositionPending;
+        if (!pending) {
+            return;
+        }
+        var viewer = viewerEl();
+        var pageEl = getPageElement(pending.page);
         if (!viewer || !pageEl) {
             return;
         }
@@ -900,7 +937,8 @@
         }
         var opts = options || {};
         var delay = Number.isFinite(opts.delayMs) ? opts.delayMs : 220;
-        var gentle = !!opts.gentle;
+        /* Block resize/zoom reflow + aggressive recovery while layout settles (no PDF re-raster). */
+        markTheatreLayoutTransition(delay + 220);
         if (state.displayModeRerenderTimer) {
             clearTimeout(state.displayModeRerenderTimer);
             state.displayModeRerenderTimer = null;
@@ -910,28 +948,10 @@
             if (!state.pdf) {
                 return;
             }
-            state.layoutRev = (state.layoutRev || 0) + 1;
             var viewer = viewerEl();
             var saved = viewer ? buildSavedPosition(getCurrentPage(), viewer.scrollTop) : null;
             updateEffectiveScale();
             syncZoomUiState();
-            state.renderQueue = [];
-            state.renderQueueMap = {};
-            state.renderInFlight = 0;
-            state.renderingPages = {};
-            state.renderSchedulePending = false;
-            state.renderedPages = {};
-            var pn = 1;
-            for (pn = 1; pn <= state.pdf.numPages; pn++) {
-                var ps = state.pages[pn];
-                if (ps && ps.stage && typeof ps.stage.destroy === 'function') {
-                    try {
-                        ps.stage.destroy();
-                    } catch (eLayout) {}
-                }
-                delete state.pages[pn];
-            }
-            buildPageSkeletons();
             if (saved) {
                 state.restorePositionPending = {
                     page: saved.page,
@@ -949,8 +969,11 @@
             }
             requestAnimationFrame(function () {
                 requestAnimationFrame(function () {
-                    if (state.pdf) {
-                        scheduleRenderWindowUpdate(!gentle);
+                    restoreScrollAfterTheatreLayoutIfPossible();
+                    if (state.restorePositionPending) {
+                        requestAnimationFrame(function () {
+                            restoreScrollAfterTheatreLayoutIfPossible();
+                        });
                     }
                 });
             });
@@ -997,6 +1020,7 @@
             var btnOn = document.querySelector('[data-proxy-action="fullscreen"]');
             if (btnOn) { btnOn.innerHTML = '<svg viewBox="0 0 2300 2300" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke="rgb(59,62,62)" stroke-width="200" stroke-linecap="round" stroke-linejoin="round" d="M 825,826 L 825,126 M 125,826 L 825,826 M 825,1474 L 825,2174 M 125,1474 L 825,1474 M 1476,826 L 1476,126 M 2176,826 L 1476,826 M 1476,1474 L 1476,2174 M 2176,1474 L 1476,1474"/></svg>'; }
             softReflowPdfLayoutAfterTheaterToggle({ delayMs: 320, gentle: false });
+            syncLayoutDocumentState();
             return;
         }
         theaterState.hiddenElements.forEach(function (entry) {
@@ -1008,6 +1032,7 @@
         var btnOff = document.querySelector('[data-proxy-action="fullscreen"]');
         if (btnOff) { btnOff.innerHTML = '<svg viewBox="0 0 2300 2300" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke="rgb(59,62,62)" stroke-width="200" stroke-linecap="round" stroke-linejoin="round" d="M 125,126 L 125,826 M 825,126 L 125,126 M 125,2174 L 125,1474 M 825,2174 L 125,2174 M 2176,126 L 2176,826 M 1476,126 L 2176,126 M 2176,2174 L 2176,1474 M 1476,2174 L 2176,2174"/></svg>'; }
         softReflowPdfLayoutAfterTheaterToggle({ delayMs: 360, gentle: true });
+        syncLayoutDocumentState();
     }
     window.tlToggleTheaterMode = toggleTheaterMode;
 
@@ -1021,6 +1046,13 @@
     function isBrowserFullscreen() {
         return !!(document.fullscreenElement || document.webkitFullscreenElement ||
             document.mozFullScreenElement || document.msFullscreenElement);
+    }
+
+    function syncLayoutDocumentState() {
+        try {
+            document.documentElement.setAttribute('data-tl-theatre', theaterState.enabled ? '1' : '0');
+            document.documentElement.setAttribute('data-tl-browser-fs', isBrowserFullscreen() ? '1' : '0');
+        } catch (eSync) {}
     }
 
     function requestBrowserFullscreen() {
@@ -2887,6 +2919,7 @@
 
     function bindFullscreenCommentNavRecovery() {
         var recover = function () {
+            syncLayoutDocumentState();
             setTimeout(function () {
                 ensureCommentNavControls();
                 ensureRestoreControls();
@@ -2897,7 +2930,7 @@
         document.addEventListener('fullscreenchange', recover);
         document.addEventListener('webkitfullscreenchange', recover);
         document.addEventListener('mozfullscreenchange', recover);
-        document.addEventListener('MSFullscreenChange', recover);
+        document.addEventListener('msfullscreenchange', recover);
     }
 
     function ensureToggleAllComments() {
@@ -2908,15 +2941,11 @@
         }
         btn.dataset.bound = '1';
         bindToggleAllCommentsToolbarTooltip(btn);
+        btn.classList.add('tl-toggle-all-comments-btn');
         if (!btn.querySelector('.tl-toggle-all-label')) {
             var lbl = document.createElement('span');
             lbl.className = 'tl-toggle-all-label';
             lbl.textContent = state.showAllComments ? 'Hide all' : 'Show all';
-            btn.style.display = 'inline-flex';
-            btn.style.alignItems = 'center';
-            btn.style.gap = '5px';
-            btn.style.fontFamily = 'Open Sans, Arial, sans-serif';
-            btn.style.fontWeight = '300';
             btn.appendChild(lbl);
         }
         btn.addEventListener('click', function () {
@@ -5099,9 +5128,13 @@ function fitTextboxAroundContent(annotationData) {
             state.recoveryTimer = null;
         }
         var delay = (reason === 'shown.bs.tab') ? 350 : 220;
-        state.recoveryTimer = setTimeout(function () {
+        function runAnnotationRecovery() {
             state.recoveryTimer = null;
             if (!state.pdf) {
+                return;
+            }
+            if (isTheatreLayoutTransitionBusy()) {
+                state.recoveryTimer = setTimeout(runAnnotationRecovery, 160);
                 return;
             }
             var viewer = viewerEl();
@@ -5119,8 +5152,9 @@ function fitTextboxAroundContent(annotationData) {
                 return;
             }
 
-            scheduleRenderWindowUpdate(true);
-        }, delay);
+            scheduleRenderWindowUpdate(false);
+        }
+        state.recoveryTimer = setTimeout(runAnnotationRecovery, delay);
     }
 
     function bindVisibilityRecovery() {
@@ -5232,6 +5266,7 @@ function fitTextboxAroundContent(annotationData) {
         ensureRestoreControls();
         ensureSearchFormControls();
         bindFullscreenCommentNavRecovery();
+        syncLayoutDocumentState();
         setTimeout(ensureRestoreControls, 400);
         setTimeout(ensureRestoreControls, 1200);
         setTimeout(ensureToggleAllComments, 400);
@@ -5248,8 +5283,7 @@ function fitTextboxAroundContent(annotationData) {
             __pdfInit.then(function () {
                 renderDocument();
                 setTimeout(function () {
-                    scheduleRenderWindowUpdate(true);
-                    scheduleAnnotationRecovery('init');
+                    scheduleRenderWindowUpdate(false);
                 }, 450);
             }).catch(function (error) {
                 console.error('PDF initialization failed', error);

@@ -1412,7 +1412,9 @@ function startIndex(
                                             elem.style.height = PAGE_HEIGHT + 'px';
                                         });
 
-                                        if (!$('.path-mod-pdfannotator').first().hasClass('fullscreenWrapper')) {
+                                        var __idx = document.getElementById('pdfannotator_index');
+                                        var __v4 = __idx && __idx.classList.contains('tl-layout-v4');
+                                        if (!__v4 && !$('.path-mod-pdfannotator').first().hasClass('fullscreenWrapper')) {
                                             var pageheight100 = pdfPage.getViewport({
                                                 scale: 1,
                                                 rotation: 0,
@@ -1468,7 +1470,7 @@ function startIndex(
                  * Function for a fixed toolbar, when scrolliing down. But only as long as the document is visible.
                  * @returns {undefined}
                  */
-                (function () {
+                if (!$('#pdfannotator_index').hasClass('tl-layout-v4')) { (function () {
                     var top =
                         $('#pdftoolbar').offset().top -
                         parseFloat($('#pdftoolbar').css('marginTop').replace(/auto/, 0));
@@ -1509,7 +1511,7 @@ function startIndex(
                         width = $('#pdftoolbar').parent().width();
                         $('#pdftoolbar').width(width);
                     });
-                })();
+                })(); }
 
                 //initialize searchForm
                 (function () {
