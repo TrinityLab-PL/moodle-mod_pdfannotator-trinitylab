@@ -1970,17 +1970,13 @@
             var overlayHost = shell.overlayHost;
             var cssWidth = Math.max(1, Math.round(Number(cssViewport.width || 0)));
             var cssHeight = Math.max(1, Math.round(Number(cssViewport.height || 0)));
-            var theatre150 = isTheaterModeActive() && Math.abs((state.scale || 0) - 1.5) < 0.0001;
-            var renderScale = state.scale * pixelRatio;
-            var renderViewport = page.getViewport({ scale: renderScale });
-
-            if (theatre150) {
-                canvas.width = Math.max(1, Math.round(cssWidth * pixelRatio));
-                canvas.height = Math.max(1, Math.round(cssHeight * pixelRatio));
-            } else {
-                canvas.width = Math.max(1, Math.round(Number(renderViewport.width || 0)));
-                canvas.height = Math.max(1, Math.round(Number(renderViewport.height || 0)));
-            }
+            var vw = Math.max(1, Number(cssViewport.width || 1));
+            var vh = Math.max(1, Number(cssViewport.height || 1));
+            /* HiDPI: backing store = ceil(CSSpx * DPR) so the bitmap is never upscaled soft; map PDF space with cssViewport + transform (PDF.js HiDPI pattern). */
+            var canvasBackingW = Math.max(1, Math.ceil(cssWidth * pixelRatio));
+            var canvasBackingH = Math.max(1, Math.ceil(cssHeight * pixelRatio));
+            canvas.width = canvasBackingW;
+            canvas.height = canvasBackingH;
             canvas.style.width = cssWidth + 'px';
             canvas.style.height = cssHeight + 'px';
             overlayHost.style.width = cssWidth + 'px';
@@ -2001,19 +1997,11 @@
             canvasContext.fillStyle = '#ffffff';
             canvasContext.fillRect(0, 0, canvas.width, canvas.height);
             canvasContext.imageSmoothingEnabled = false;
-            var renderContext;
-            if (theatre150) {
-                renderContext = {
-                    canvasContext: canvasContext,
-                    viewport: cssViewport,
-                    transform: [canvas.width / Math.max(1, cssViewport.width || 1), 0, 0, canvas.height / Math.max(1, cssViewport.height || 1), 0, 0]
-                };
-            } else {
-                renderContext = {
-                    canvasContext: canvasContext,
-                    viewport: renderViewport
-                };
-            }
+            var renderContext = {
+                canvasContext: canvasContext,
+                viewport: cssViewport,
+                transform: [canvas.width / vw, 0, 0, canvas.height / vh, 0, 0]
+            };
 
             if ((state.layoutRev || 0) !== layoutCapture) {
                 return Promise.resolve();
