@@ -124,6 +124,10 @@ Kryterium zaliczenia:
 Jeśli którykolwiek test ma `FAIL`, **NIE WOLNO** modyfikować kodu. Najpierw napraw przyczynę testu.
 Jeśli testy są `OK` (lub `SYNTAX: SKIPPED` wyłącznie z powodu braku `node`), dopiero wtedy wolno uruchomić `edit-with-maintenance.sh --cmd ...`.
 
+### `version.php` i upgrade w GUI (MUST)
+
+- Przy zmianach **bez** realnej migracji bazy (`db/upgrade.php` itd.): **nie** zmieniać `$plugin->version` w `version.php` — to nie może wymuszać na użytkowniku przejścia przez upgrade w GUI wyłącznie przez kosmetykę/JS/CSS. Cache bust: `?ver=` w `locallib.php`, `purge_caches`. Pełna reguła i wyjątki: **[PDF_ANNOTATOR_ZASADY_PRACY.md](PDF_ANNOTATOR_ZASADY_PRACY.md) §2.1**.
+
 ## Zabronione
 
 - **Przywracanie jakichkolwiek starych wersji plików** (z backupów, rollbacków, git, kopii) **w całym projekcie bez wyraźnej zgody użytkownika.** Nie wolno samodzielnie decydować o przywróceniu starszej wersji – tylko na polecenie użytkownika lub po jego zgodzie.

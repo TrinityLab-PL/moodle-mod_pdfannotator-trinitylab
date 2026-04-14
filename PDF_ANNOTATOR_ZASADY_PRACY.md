@@ -17,6 +17,14 @@
 - Pliki objęte workflow: `shared/index.js` (chroniony), opcjonalnie `view.php`, `styles.css`, `fullscreen_enhanced.js` – w zależności od skryptu i backupu.
 - **Tylko to, o co poproszono:** realizować wyłącznie elementy wyraźnie opisane w poleceniu użytkownika. Bez dodawania „ulepszeń”, domyślnych interpretacji ani zmian w parametrach, których użytkownik nie wymienił. Przykład: jeśli podano nową wartość paddingu w jednym wymiarze lub ogólnie „ciaśniejszy pion”, należy zachować istniejący padding poziomy (np. `12px`), o ile użytkownik go nie zmienił — skrót `padding: 0.17em` dla wszystkich boków **nie jest** równoważny „zmniejsz tylko pion”.
 
+### 2.1 `version.php` — bez narzucania upgrade w GUI przy zmianach bez DB
+
+- **Zasada:** jeśli zmiana **nie** obejmuje realnej migracji bazy (`db/install.xml`, `db/upgrade.php` itd.) i użytkownik **nie** polecił wyraźnie podniesienia wersji wydania, **nie wolno** zmieniać `$plugin->version` w `version.php`.
+- **Dlaczego:** podbicie numeru w `version.php` skutkuje w Moodle oczekującym **upgrade** wtyczki (powiadomienia / przejście przez aktualizację) — to **nie może** być efektem ubocznym samych zmian w JS/CSS/kosmetyce ani „dla porządku”.
+- **Cache bust zamiast `version.php`:** dla JS/CSS używać parametru `?ver=` w `locallib.php` (w razie potrzeby podbicie tego parametru) oraz/lub `php admin/cli/purge_caches.php`.
+- **Baza:** asystent **nie** wykonuje ręcznych zmian w bazie (SQL) w celu podbijania numerów wersji.
+- **Wyjątek — błąd „downgrade”:** gdy wersja w pliku jest **niższa** niż zapis w bazie, należy uzgodnić z użytkownikiem: przywrócenie zgodności numeru w pliku z bazą **albo** świadome podniesienie `$plugin->version` **powyżej** wartości z bazy; upgrade można wtedy wykonać z CLI (`php admin/cli/upgrade.php`), jeśli środowisko na to pozwala — żeby nie zmuszać do przechodzenia przez GUI bez potrzeby.
+
 ---
 
 ## 3. Edycja kodu (jak się robi zmiany – bash/skrypt)

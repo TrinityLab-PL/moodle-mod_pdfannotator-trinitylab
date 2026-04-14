@@ -3627,6 +3627,30 @@ body:not(.tl-pdf-fullscreen) #pdfannotator_index.tl-layout-v4 #content-wrapper {
     background-clip: padding-box !important;
 }
 
+/* v4 normal: cienki pasek jak w theatre (jasne tło kolumny PDF) */
+body:not(.tl-pdf-fullscreen) #pdfannotator_index.tl-layout-v4 #viewer {
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(0, 0, 0, 0.32) rgba(0, 0, 0, 0.06) !important;
+}
+
+body:not(.tl-pdf-fullscreen) #pdfannotator_index.tl-layout-v4 #viewer::-webkit-scrollbar {
+    width: 6px !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}
+
+body:not(.tl-pdf-fullscreen) #pdfannotator_index.tl-layout-v4 #viewer::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.06) !important;
+    border-radius: 999px !important;
+}
+
+body:not(.tl-pdf-fullscreen) #pdfannotator_index.tl-layout-v4 #viewer::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.32) !important;
+    border-radius: 999px !important;
+    border: 2px solid transparent !important;
+    background-clip: padding-box !important;
+}
+
 /* TL_V4_RIGHT_EDGE_ANCHOR */
 #pdfannotator_index.tl-layout-v4 #viewer .page {
     margin-left: auto !important;
@@ -3723,6 +3747,7 @@ body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #viewer {
     overflow-y: auto !important;
     overflow-x: hidden !important;
     scrollbar-width: thin !important;
+    scrollbar-color: var(--tl-v4-pdf-sb-thumb) var(--tl-v4-pdf-sb-track) !important;
     -ms-overflow-style: auto !important;
 }
 
@@ -3736,11 +3761,13 @@ body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #viewer::-webkit-scrollb
 
 body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #viewer::-webkit-scrollbar-track {
     background: var(--tl-v4-pdf-sb-track) !important;
+
     border-radius: 999px !important;
 }
 
 body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #viewer::-webkit-scrollbar-thumb {
     background: var(--tl-v4-pdf-sb-thumb) !important;
+
     border-radius: 999px !important;
     border: 2px solid transparent !important;
     background-clip: padding-box !important;
