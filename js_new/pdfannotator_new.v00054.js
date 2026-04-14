@@ -194,8 +194,6 @@
             var paddingLeft = parseFloat(style.paddingLeft || '0') || 0;
             var paddingRight = parseFloat(style.paddingRight || '0') || 0;
             availableWidth = Math.max(0, contentWrapper.clientWidth - paddingLeft - paddingRight);
-            /* v4 CSS: --tl-v4-pdf-sb-gutter on #viewer (normal + theatre) */
-            availableWidth = Math.max(64, availableWidth - 10);
         } else if (viewer) {
             availableWidth = viewer.clientWidth || 0;
         }
@@ -853,40 +851,6 @@
             return;
         }
         var savePosTimer = null;
-        var docSbRaf = null;
-        var docSbPendingX = 0;
-        var docSbPendingY = 0;
-        function syncPdfScrollbarProximityDoc(clientX, clientY) {
-            if (!isLayoutV4Active()) {
-                viewer.classList.remove('tl-sb-proximity');
-                return;
-            }
-            var rect = viewer.getBoundingClientRect();
-            if (clientY < rect.top || clientY > rect.bottom || clientX < rect.left || clientX > rect.right) {
-                viewer.classList.remove('tl-sb-proximity');
-                return;
-            }
-            var fromRight = rect.right - clientX;
-            /* Rail ~6px + 3px slop + gutter; document capture sees moves even when Konva stops bubbling */
-            var hotDepth = 22;
-            viewer.classList.toggle('tl-sb-proximity', fromRight >= 0 && fromRight <= hotDepth);
-        }
-        function onDocPointerMoveCapture(e) {
-            if (!isLayoutV4Active()) {
-                return;
-            }
-            docSbPendingX = e.clientX;
-            docSbPendingY = e.clientY;
-            if (docSbRaf) {
-                return;
-            }
-            docSbRaf = requestAnimationFrame(function () {
-                docSbRaf = null;
-                syncPdfScrollbarProximityDoc(docSbPendingX, docSbPendingY);
-            });
-        }
-        document.addEventListener('pointermove', onDocPointerMoveCapture, true);
-        document.addEventListener('mousemove', onDocPointerMoveCapture, true);
         viewer.addEventListener('scroll', function () {
             var now = Date.now();
             var topNow = viewer.scrollTop;
