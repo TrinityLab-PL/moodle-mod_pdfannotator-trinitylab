@@ -984,7 +984,7 @@
                 };
                 state.initialPage = state.savedPosition.page;
             }
-            renderDocument();
+            reflowPdfForScaleChange();
             setTimeout(function () {
                 if (state.pdf) {
                     scheduleRenderWindowUpdate(!gentle);
@@ -1739,6 +1739,63 @@
                 }
             }
         });
+    }
+
+
+    function reflowPdfForScaleChange() {
+        if (!state.pdf) {
+            return;
+        }
+        updateEffectiveScale();
+        syncZoomUiState();
+
+        state.layoutRev = (state.layoutRev || 0) + 1;
+
+        state.renderQueue = [];
+        state.renderQueueMap = {};
+        state.renderSchedulePending = false;
+
+        state.renderedPages = {};
+        state.pageRenderSignatures = {};
+
+        Object.keys(state.pages || {}).forEach(function (key) {
+            var pageNo = parseInt(key, 10);
+            if (!Number.isFinite(pageNo)) {
+                return;
+            }
+            var ps = state.pages[pageNo];
+            if (ps && ps.stage && typeof ps.stage.destroy === 'function') {
+                try {
+                    ps.stage.destroy();
+                } catch (e) {}
+            }
+            delete state.pages[pageNo];
+        });
+
+        buildPageSkeletons();
+
+        state.metrics.renderStartTs = Date.now();
+        state.metrics.firstPageRenderMs = null;
+        state.metrics.fullRenderMs = null;
+
+        var viewer = viewerEl();
+        var targetPage = Math.max(1, Math.min(state.pdf.numPages, parseInt(state.initialPage || 1, 10) || 1));
+        if (state.savedPosition && Number.isFinite(state.savedPosition.page)) {
+            targetPage = Math.max(1, Math.min(state.pdf.numPages, parseInt(state.savedPosition.page, 10) || 1));
+            state.restorePositionPending = {
+                page: targetPage,
+                ratio: Number.isFinite(state.savedPosition.ratio) ? state.savedPosition.ratio : null,
+                scrollTop: Number.isFinite(state.savedPosition.scrollTop) ? state.savedPosition.scrollTop : 0,
+                scale: Number.isFinite(state.savedPosition.scale) ? state.savedPosition.scale : state.scale
+            };
+        }
+        if (viewer) {
+            var targetEl = getPageElement(targetPage);
+            viewer.scrollTop = targetEl ? Math.max(0, targetEl.offsetTop) : 0;
+        }
+
+        scheduleRenderWindowUpdate(false);
+        startAnnotationWarmup();
     }
 
     function renderDocument() {
