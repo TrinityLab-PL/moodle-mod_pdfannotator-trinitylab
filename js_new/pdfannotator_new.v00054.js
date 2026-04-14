@@ -853,35 +853,40 @@
             return;
         }
         var savePosTimer = null;
-        var sbHoverRaf = null;
-        var lastClientX = 0;
-        function syncPdfScrollbarProximity(clientX) {
+        var docSbRaf = null;
+        var docSbPendingX = 0;
+        var docSbPendingY = 0;
+        function syncPdfScrollbarProximityDoc(clientX, clientY) {
             if (!isLayoutV4Active()) {
                 viewer.classList.remove('tl-sb-proximity');
                 return;
             }
             var rect = viewer.getBoundingClientRect();
+            if (clientY < rect.top || clientY > rect.bottom || clientX < rect.left || clientX > rect.right) {
+                viewer.classList.remove('tl-sb-proximity');
+                return;
+            }
             var fromRight = rect.right - clientX;
-            /* ~6px rail + 3px hit slop beside scrollbar (match styles TL_V4_PDF_SCROLLBAR) */
-            var hotDepth = 6 + 3 + 2;
+            /* Rail ~6px + 3px slop + gutter; document capture sees moves even when Konva stops bubbling */
+            var hotDepth = 22;
             viewer.classList.toggle('tl-sb-proximity', fromRight >= 0 && fromRight <= hotDepth);
         }
-        viewer.addEventListener('mousemove', function (e) {
+        function onDocPointerMoveCapture(e) {
             if (!isLayoutV4Active()) {
                 return;
             }
-            lastClientX = e.clientX;
-            if (sbHoverRaf) {
+            docSbPendingX = e.clientX;
+            docSbPendingY = e.clientY;
+            if (docSbRaf) {
                 return;
             }
-            sbHoverRaf = requestAnimationFrame(function () {
-                sbHoverRaf = null;
-                syncPdfScrollbarProximity(lastClientX);
+            docSbRaf = requestAnimationFrame(function () {
+                docSbRaf = null;
+                syncPdfScrollbarProximityDoc(docSbPendingX, docSbPendingY);
             });
-        });
-        viewer.addEventListener('mouseleave', function () {
-            viewer.classList.remove('tl-sb-proximity');
-        });
+        }
+        document.addEventListener('pointermove', onDocPointerMoveCapture, true);
+        document.addEventListener('mousemove', onDocPointerMoveCapture, true);
         viewer.addEventListener('scroll', function () {
             var now = Date.now();
             var topNow = viewer.scrollTop;
