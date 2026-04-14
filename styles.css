@@ -3797,3 +3797,16 @@ body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #viewer .page {
 body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #comment-wrapper {
     border-radius: 3px 3px 0 0 !important;
 }
+
+/* TL_ZOOM_PAN: zoom > 100% — horizontal scroll + LMB drag pan (v00054) */
+body:not(.tl-pdf-fullscreen) #viewer.tl-zoom-pan {
+    overflow-x: auto !important;
+}
+body.tl-pdf-fullscreen #pdfannotator_index.tl-layout-v4 #viewer.tl-zoom-pan {
+    overflow-x: auto !important;
+}
+body.tl-pdf-fullscreen #pdfannotator_index:not(.tl-layout-v4) #viewer.tl-zoom-pan {
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+}
+

@@ -225,6 +225,115 @@
         if (root && isLayoutV4Active()) {
             root.classList.toggle('zoom-200', isZoom200);
         }
+        var viewerZ = viewerEl();
+        if (viewerZ) {
+            viewerZ.classList.toggle('tl-zoom-pan', getRequestedZoom() > 1.0001);
+        }
+        syncViewerPanCursorClass();
+    }
+
+    function syncViewerPanCursorClass() {
+        var v = viewerEl();
+        if (!v) {
+            return;
+        }
+        var z = getRequestedZoom() > 1.0001;
+        v.classList.toggle('tl-pdf-pan-ready', z && state.activeTool === 'cursor');
+        if (v.classList.contains('tl-pdf-panning')) {
+            v.style.cursor = 'grabbing';
+            return;
+        }
+        if (z && state.activeTool === 'cursor') {
+            v.style.cursor = 'grab';
+        }
+    }
+
+    function detachViewerPanListeners() {
+        document.removeEventListener('mousemove', onViewerPanMouseMove, true);
+        document.removeEventListener('mouseup', onViewerPanMouseUp, true);
+        document.removeEventListener('touchmove', onViewerPanTouchMove, { passive: false, capture: true });
+        document.removeEventListener('touchend', onViewerPanTouchEnd, true);
+        document.removeEventListener('touchcancel', onViewerPanTouchEnd, true);
+    }
+
+    function endViewerPanSession() {
+        var p = state._viewerPanSession;
+        state._viewerPanSession = null;
+        detachViewerPanListeners();
+        var ve = viewerEl();
+        if (ve) {
+            ve.classList.remove('tl-pdf-panning');
+        }
+        syncViewerPanCursorClass();
+        if (p && !p.moved) {
+            clearSelection();
+        }
+    }
+
+    function onViewerPanMouseMove(e) {
+        if (!state._viewerPanSession) {
+            return;
+        }
+        var clientX = e.clientX;
+        var clientY = e.clientY;
+        var p = state._viewerPanSession;
+        var dx = clientX - p.lastClientX;
+        var dy = clientY - p.lastClientY;
+        p.lastClientX = clientX;
+        p.lastClientY = clientY;
+        if (Math.abs(clientX - p.startClientX) > 4 || Math.abs(clientY - p.startClientY) > 4) {
+            p.moved = true;
+        }
+        var vv = viewerEl();
+        if (vv) {
+            vv.scrollLeft -= dx;
+            vv.scrollTop -= dy;
+        }
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+    }
+
+    function onViewerPanMouseUp() {
+        if (!state._viewerPanSession) {
+            return;
+        }
+        endViewerPanSession();
+    }
+
+    function onViewerPanTouchMove(e) {
+        if (!state._viewerPanSession) {
+            return;
+        }
+        var t = e.touches && e.touches[0];
+        if (!t) {
+            return;
+        }
+        var clientX = t.clientX;
+        var clientY = t.clientY;
+        var p = state._viewerPanSession;
+        var dx = clientX - p.lastClientX;
+        var dy = clientY - p.lastClientY;
+        p.lastClientX = clientX;
+        p.lastClientY = clientY;
+        if (Math.abs(clientX - p.startClientX) > 4 || Math.abs(clientY - p.startClientY) > 4) {
+            p.moved = true;
+        }
+        var vv2 = viewerEl();
+        if (vv2) {
+            vv2.scrollLeft -= dx;
+            vv2.scrollTop -= dy;
+        }
+        if (e.cancelable) {
+            e.preventDefault();
+        }
+    }
+
+    function onViewerPanTouchEnd() {
+        if (!state._viewerPanSession) {
+            return;
+        }
+        endViewerPanSession();
     }
 
     function scheduleDeferredUnifiedReflow(options) {
@@ -695,6 +804,7 @@
         if (state.activeTool !== 'cursor') {
             clearSelection();
         }
+        syncViewerPanCursorClass();
     }
 
     function clearViewer() {
@@ -723,6 +833,14 @@
             state.pendingUnifiedReflowTimer = null;
         }
         state.pendingUnifiedReflowOpts = null;
+        if (state._viewerPanSession) {
+            state._viewerPanSession = null;
+            detachViewerPanListeners();
+            var vx = viewerEl();
+            if (vx) {
+                vx.classList.remove('tl-pdf-panning');
+            }
+        }
         clearSelection();
     }
 
@@ -2162,6 +2280,54 @@
         stage.on('mousedown touchstart', function (event) {
             var tool = state.activeTool;
             if (tool === 'cursor') {
+                var canPan = getRequestedZoom() > 1.0001;
+                var tgt = event && event.target;
+                if (canPan && tgt === stage && event.evt) {
+                    var ev0 = event.evt;
+                    var isTouch = ev0.type && ev0.type.indexOf('touch') === 0;
+                    var btn = 0;
+                    var clientX = 0;
+                    var clientY = 0;
+                    if (isTouch) {
+                        if (!ev0.touches || !ev0.touches[0]) {
+                            return;
+                        }
+                        clientX = ev0.touches[0].clientX;
+                        clientY = ev0.touches[0].clientY;
+                    } else {
+                        if (ev0.button !== 0) {
+                            if (event.target === stage) {
+                                clearSelection();
+                            }
+                            return;
+                        }
+                        clientX = ev0.clientX;
+                        clientY = ev0.clientY;
+                    }
+                    state._viewerPanSession = {
+                        startClientX: clientX,
+                        startClientY: clientY,
+                        lastClientX: clientX,
+                        lastClientY: clientY,
+                        moved: false
+                    };
+                    var vPan = viewerEl();
+                    if (vPan) {
+                        state._viewerPanSession.startScrollLeft = vPan.scrollLeft;
+                        state._viewerPanSession.startScrollTop = vPan.scrollTop;
+                        vPan.classList.add('tl-pdf-panning');
+                        vPan.style.cursor = 'grabbing';
+                    }
+                    if (isTouch) {
+                        document.addEventListener('touchmove', onViewerPanTouchMove, { passive: false, capture: true });
+                        document.addEventListener('touchend', onViewerPanTouchEnd, true);
+                        document.addEventListener('touchcancel', onViewerPanTouchEnd, true);
+                    } else {
+                        document.addEventListener('mousemove', onViewerPanMouseMove, true);
+                        document.addEventListener('mouseup', onViewerPanMouseUp, true);
+                    }
+                    return;
+                }
                 if (event && event.target === stage) {
                     clearSelection();
                 }
