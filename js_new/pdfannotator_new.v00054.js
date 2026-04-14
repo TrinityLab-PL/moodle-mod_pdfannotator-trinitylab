@@ -1623,15 +1623,18 @@
             if (isPageRenderedForCurrentSignature(pageNo) || state.renderingPages[key]) {
                 continue;
             }
-            state.renderInFlight += 1;
-            state.renderingPages[key] = true;
-            renderPage(pageNo).catch(function (error) {
-                console.error('Render page failed', error);
-            }).finally(function () {
-                delete state.renderingPages[key];
-                state.renderInFlight = Math.max(0, state.renderInFlight - 1);
-                processRenderQueue();
-            });
+            (function (capturedPageNo) {
+                var capturedKey = String(capturedPageNo);
+                state.renderInFlight += 1;
+                state.renderingPages[capturedKey] = true;
+                renderPage(capturedPageNo).catch(function (error) {
+                    console.error('Render page failed', error);
+                }).finally(function () {
+                    delete state.renderingPages[capturedKey];
+                    state.renderInFlight = Math.max(0, state.renderInFlight - 1);
+                    processRenderQueue();
+                });
+            })(pageNo);
         }
     }
 
