@@ -126,7 +126,7 @@ Jeśli testy są `OK` (lub `SYNTAX: SKIPPED` wyłącznie z powodu braku `node`),
 
 ### `version.php` i upgrade w GUI (MUST)
 
-- Przy zmianach **bez** realnej migracji bazy (`db/upgrade.php` itd.): **nie** zmieniać `$plugin->version` w `version.php` — to nie może wymuszać na użytkowniku przejścia przez upgrade w GUI wyłącznie przez kosmetykę/JS/CSS. Cache bust: `?ver=` w `locallib.php`, `purge_caches`. Pełna reguła i wyjątki: **[PDF_ANNOTATOR_ZASADY_PRACY.md](PDF_ANNOTATOR_ZASADY_PRACY.md) §2.1**.
+- Przy zmianach **bez** realnej migracji bazy (`db/upgrade.php` itd.): **nie** zmieniać `$plugin->version` w `version.php` — to nie może wymuszać na użytkowniku przejścia przez upgrade w GUI wyłącznie przez kosmetykę/JS/CSS. Cache bust: `?ver=` w `locallib.php`; purge cache serwera wyłącznie w ramach `edit-with-maintenance.sh`. Pełna reguła i wyjątki: **[PDF_ANNOTATOR_ZASADY_PRACY.md](PDF_ANNOTATOR_ZASADY_PRACY.md) §2.1**.
 
 ## Zabronione
 

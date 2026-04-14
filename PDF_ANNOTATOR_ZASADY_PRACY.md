@@ -21,7 +21,7 @@
 
 - **Zasada:** jeśli zmiana **nie** obejmuje realnej migracji bazy (`db/install.xml`, `db/upgrade.php` itd.) i użytkownik **nie** polecił wyraźnie podniesienia wersji wydania, **nie wolno** zmieniać `$plugin->version` w `version.php`.
 - **Dlaczego:** podbicie numeru w `version.php` skutkuje w Moodle oczekującym **upgrade** wtyczki (powiadomienia / przejście przez aktualizację) — to **nie może** być efektem ubocznym samych zmian w JS/CSS/kosmetyce ani „dla porządku”.
-- **Cache bust zamiast `version.php`:** dla JS/CSS używać parametru `?ver=` w `locallib.php` (w razie potrzeby podbicie tego parametru) oraz/lub `php admin/cli/purge_caches.php`.
+- **Cache bust zamiast `version.php`:** dla JS/CSS używać parametru `?ver=` w `locallib.php` (w razie potrzeby podbicie tego parametru). Odświeżenie cache Moodla po zmianach plików następuje przez wbudowane `php admin/cli/purge_caches.php` w `edit-with-maintenance.sh` (§5.0) — nie jako osobna ścieżka obok skryptu.
 - **Baza:** asystent **nie** wykonuje ręcznych zmian w bazie (SQL) w celu podbijania numerów wersji.
 - **Wyjątek — błąd „downgrade”:** gdy wersja w pliku jest **niższa** niż zapis w bazie, należy uzgodnić z użytkownikiem: przywrócenie zgodności numeru w pliku z bazą **albo** świadome podniesienie `$plugin->version` **powyżej** wartości z bazy; upgrade można wtedy wykonać z CLI (`php admin/cli/upgrade.php`), jeśli środowisko na to pozwala — żeby nie zmuszać do przechodzenia przez GUI bez potrzeby.
 
@@ -115,6 +115,10 @@
 ---
 
 ## 5. Testy przed i po (bramka)
+
+### 5.0 Purge cache Moodla
+
+- **Tylko w skrypcie:** `php admin/cli/purge_caches.php` jest wywoływane wewnątrz `mod/pdfannotator/edit-with-maintenance.sh` (`do_cmd` / `do_restore`). **Nie usuwać** tego z skryptu. Zmiany kodu pluginu idą wyłącznie przez ten skrypt (§3) — nie opisujemy oddzielnych ścieżek purge poza nim.
 
 - Przed zmianą: SANITY, SYNTAX, REGRES, SMOKE. Raport: `SANITY: OK/FAIL`, `SYNTAX: OK/FAIL`, `REGRES: OK/FAIL`, `SMOKE: OK/FAIL`.
 - **SANITY (CLI), snapshot referencyjny v120:**  
