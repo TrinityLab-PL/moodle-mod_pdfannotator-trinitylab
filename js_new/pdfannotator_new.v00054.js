@@ -1943,8 +1943,7 @@
             canvasContext.setTransform(1, 0, 0, 1, 0, 0);
             canvasContext.fillStyle = '#ffffff';
             canvasContext.fillRect(0, 0, canvas.width, canvas.height);
-            var theatre100 = isTheaterModeActive() && Math.abs((state.scale || 0) - 1) < 0.0001;
-            canvasContext.imageSmoothingEnabled = theatre100 ? false : !(state.scale >= 1.5);
+            canvasContext.imageSmoothingEnabled = false;
             var renderContext;
             if (theatre150) {
                 renderContext = {
