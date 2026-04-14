@@ -194,6 +194,8 @@
             var paddingLeft = parseFloat(style.paddingLeft || '0') || 0;
             var paddingRight = parseFloat(style.paddingRight || '0') || 0;
             availableWidth = Math.max(0, contentWrapper.clientWidth - paddingLeft - paddingRight);
+            /* v4 CSS: --tl-v4-pdf-sb-gutter on #viewer (normal + theatre) */
+            availableWidth = Math.max(64, availableWidth - 10);
         } else if (viewer) {
             availableWidth = viewer.clientWidth || 0;
         }
@@ -851,6 +853,35 @@
             return;
         }
         var savePosTimer = null;
+        var sbHoverRaf = null;
+        var lastClientX = 0;
+        function syncPdfScrollbarProximity(clientX) {
+            if (!isLayoutV4Active()) {
+                viewer.classList.remove('tl-sb-proximity');
+                return;
+            }
+            var rect = viewer.getBoundingClientRect();
+            var fromRight = rect.right - clientX;
+            /* ~6px rail + 3px hit slop beside scrollbar (match styles TL_V4_PDF_SCROLLBAR) */
+            var hotDepth = 6 + 3 + 2;
+            viewer.classList.toggle('tl-sb-proximity', fromRight >= 0 && fromRight <= hotDepth);
+        }
+        viewer.addEventListener('mousemove', function (e) {
+            if (!isLayoutV4Active()) {
+                return;
+            }
+            lastClientX = e.clientX;
+            if (sbHoverRaf) {
+                return;
+            }
+            sbHoverRaf = requestAnimationFrame(function () {
+                sbHoverRaf = null;
+                syncPdfScrollbarProximity(lastClientX);
+            });
+        });
+        viewer.addEventListener('mouseleave', function () {
+            viewer.classList.remove('tl-sb-proximity');
+        });
         viewer.addEventListener('scroll', function () {
             var now = Date.now();
             var topNow = viewer.scrollTop;
