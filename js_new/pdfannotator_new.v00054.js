@@ -53,6 +53,8 @@
         layoutReflowTimer: null,
         layoutRev: 0,
         theatreTransitionUntilTs: 0,
+        pendingUnifiedReflowOpts: null,
+        pendingUnifiedReflowTimer: null,
         lastScrollTop: 0,
         lastScrollTs: 0,
         fastScrollUntilTs: 0,
@@ -215,16 +217,50 @@
         }
     }
 
+    function scheduleDeferredUnifiedReflow(options) {
+        var opts = options || {};
+        if (state.pendingUnifiedReflowTimer) {
+            clearTimeout(state.pendingUnifiedReflowTimer);
+            state.pendingUnifiedReflowTimer = null;
+        }
+        state.pendingUnifiedReflowOpts = {
+            delayMs: Number.isFinite(opts.delayMs) ? opts.delayMs : 120,
+            gentle: !!opts.gentle
+        };
+        var until = state.theatreTransitionUntilTs || 0;
+        var wait = Math.max(15, until - Date.now() + 25);
+        state.pendingUnifiedReflowTimer = setTimeout(function () {
+            state.pendingUnifiedReflowTimer = null;
+            var pending = state.pendingUnifiedReflowOpts;
+            state.pendingUnifiedReflowOpts = null;
+            if (!state.pdf || !pending) {
+                return;
+            }
+            if (isTheatreLayoutTransitionBusy()) {
+                scheduleDeferredUnifiedReflow(pending);
+                return;
+            }
+            triggerUnifiedReflow(pending);
+        }, wait);
+    }
+
     function triggerUnifiedReflow(options) {
         if (!state.pdf) {
             syncZoomUiState();
             return;
         }
-        if (isTheatreLayoutTransitionBusy()) {
+        var opts = options || {};
+        var ignoreBusy = !!opts.ignoreTheatreBusy;
+        if (isTheatreLayoutTransitionBusy() && !ignoreBusy) {
             syncZoomUiState();
+            scheduleDeferredUnifiedReflow(opts);
             return;
         }
-        var opts = options || {};
+        if (ignoreBusy && state.pendingUnifiedReflowTimer) {
+            clearTimeout(state.pendingUnifiedReflowTimer);
+            state.pendingUnifiedReflowTimer = null;
+            state.pendingUnifiedReflowOpts = null;
+        }
         var delay = Number.isFinite(opts.delayMs) ? opts.delayMs : 90;
         var gentle = !!opts.gentle;
 
@@ -650,6 +686,11 @@
         state.renderingPages = {};
         state.renderedPages = {};
         state.renderSchedulePending = false;
+        if (state.pendingUnifiedReflowTimer) {
+            clearTimeout(state.pendingUnifiedReflowTimer);
+            state.pendingUnifiedReflowTimer = null;
+        }
+        state.pendingUnifiedReflowOpts = null;
         clearSelection();
     }
 
@@ -676,7 +717,7 @@
                     return;
                 }
                 state.zoomUser = val;
-                triggerUnifiedReflow({ delayMs: 90, gentle: isTheaterModeActive() });
+                triggerUnifiedReflow({ delayMs: 90, gentle: isTheaterModeActive(), ignoreTheatreBusy: true });
             });
         }
 
@@ -737,7 +778,7 @@
         if (scaleSelect) {
             scaleSelect.value = String(state.zoomUser);
         }
-        triggerUnifiedReflow({ delayMs: 90, gentle: isTheaterModeActive() });
+        triggerUnifiedReflow({ delayMs: 90, gentle: isTheaterModeActive(), ignoreTheatreBusy: true });
     }
 
     function getCurrentPage(forceRecalc) {
@@ -1260,7 +1301,7 @@
             if (oldSelect) {
                 oldSelect.value = String(val);
             }
-            triggerUnifiedReflow({ delayMs: 90, gentle: isTheaterModeActive() });
+            triggerUnifiedReflow({ delayMs: 90, gentle: isTheaterModeActive(), ignoreTheatreBusy: true });
         });
         shell.querySelector('[data-proxy-action="prev-page"]').addEventListener('click', function () {
             scrollToPage(Math.max(1, getCurrentPage() - 1));
@@ -1475,6 +1516,9 @@
     }
 
     function pruneFarPages(keepFrom, keepTo) {
+        if (isTheatreLayoutTransitionBusy()) {
+            return;
+        }
         var keys = Object.keys(state.pages || {});
         keys.forEach(function (key) {
             var pageNo = parseInt(key, 10);
@@ -1511,6 +1555,12 @@
                     try {
                         canvas.width = Math.max(1, Math.ceil((shell.clientWidth || 1) * (window.devicePixelRatio || 1)));
                         canvas.height = Math.max(1, Math.ceil((shell.clientHeight || 1) * (window.devicePixelRatio || 1)));
+                        var pctx = canvas.getContext('2d', { alpha: false });
+                        if (pctx) {
+                            pctx.setTransform(1, 0, 0, 1, 0, 0);
+                            pctx.fillStyle = '#ffffff';
+                            pctx.fillRect(0, 0, canvas.width, canvas.height);
+                        }
                     } catch (e2) {}
                 }
             }
