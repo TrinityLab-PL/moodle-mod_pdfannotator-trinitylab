@@ -66,6 +66,7 @@
         renderInFlight: 0,
         renderingPages: {},
         renderedPages: {},
+        pageRenderSignatures: {},
         renderSchedulePending: false,
         metrics: {
             sessionStartTs: Date.now(),
@@ -365,6 +366,25 @@
         var ms = Number.isFinite(extraMs) ? extraMs : 450;
         var until = Date.now() + ms;
         state.theatreTransitionUntilTs = Math.max(state.theatreTransitionUntilTs || 0, until);
+    }
+
+
+    function computePageRenderSignature() {
+        var s = Number(state.scale) || 1;
+        var theater = isTheaterModeActive() ? 1 : 0;
+        var branch = "std";
+        if (theater && Math.abs(s - 1.5) < 0.0001) {
+            branch = "t150";
+        } else if (theater && Math.abs(s - 1) < 0.0001) {
+            branch = "t100";
+        }
+        var dpr = window.devicePixelRatio || 1;
+        return String(s) + "|" + String(theater) + "|" + branch + "|" + String(dpr);
+    }
+
+    function isPageRenderedForCurrentSignature(pageNumber) {
+        var key = String(pageNumber);
+        return !!(state.renderedPages[key] && state.pageRenderSignatures[key] === computePageRenderSignature());
     }
 
     function restoreScrollAfterTheatreLayoutIfPossible() {
@@ -685,6 +705,7 @@
         state.renderInFlight = 0;
         state.renderingPages = {};
         state.renderedPages = {};
+        state.pageRenderSignatures = {};
         state.renderSchedulePending = false;
         if (state.pendingUnifiedReflowTimer) {
             clearTimeout(state.pendingUnifiedReflowTimer);
@@ -1501,7 +1522,7 @@
             return;
         }
         var key = String(pageNumber);
-        if (state.renderQueueMap[key] || state.renderedPages[key] || state.renderingPages[key]) {
+        if (state.renderQueueMap[key] || isPageRenderedForCurrentSignature(pageNumber) || state.renderingPages[key]) {
             return;
         }
         state.renderQueueMap[key] = true;
@@ -1542,6 +1563,7 @@
             } catch (e) {}
             delete state.pages[pageNo];
             delete state.renderedPages[String(pageNo)];
+            delete state.pageRenderSignatures[String(pageNo)];
             state.metrics.prunedPages += 1;
 
             var shell = getPageElement(pageNo);
@@ -1577,7 +1599,7 @@
             var pageNo = next.page;
             var key = String(pageNo);
             delete state.renderQueueMap[key];
-            if (state.renderedPages[key] || state.renderingPages[key]) {
+            if (isPageRenderedForCurrentSignature(pageNo) || state.renderingPages[key]) {
                 continue;
             }
             state.renderInFlight += 1;
@@ -1641,7 +1663,8 @@
             var canvas = pageEl ? pageEl.querySelector('canvas.tl-pdf-canvas') : null;
             var hasBitmap = !!(canvas && canvas.width > 8 && canvas.height > 8);
             var hasState = !!getPageState(pageNo);
-            if (!hasBitmap || !hasState || !state.renderedPages[key]) {
+            var signatureOk = isPageRenderedForCurrentSignature(pageNo);
+            if (!hasBitmap || !hasState || !signatureOk) {
                 state.metrics.visibleWithoutBitmap += 1;
                 queueRenderPage(pageNo, -900 + Math.abs(pageNo - current));
             }
@@ -1843,11 +1866,15 @@
         if (!state.pdf) {
             return Promise.resolve();
         }
-        if (state.renderedPages[key]) {
+        var currentSig = computePageRenderSignature();
+        if (state.renderedPages[key] && state.pageRenderSignatures[key] === currentSig) {
             return Promise.resolve();
         }
+        delete state.renderedPages[key];
+        delete state.pageRenderSignatures[key];
         return state.pdf.getPage(pageNumber).then(function (page) {
             var layoutCapture = state.layoutRev || 0;
+            var paintSig = computePageRenderSignature();
             var cssViewport = page.getViewport({ scale: state.scale });
             var shell = ensurePageShell(pageNumber, cssViewport);
             if (!shell) {
@@ -1916,8 +1943,16 @@
                 if ((state.layoutRev || 0) !== layoutCapture) {
                     return;
                 }
+                if (computePageRenderSignature() !== paintSig) {
+                    delete state.renderedPages[key];
+                    delete state.pageRenderSignatures[key];
+                    queueRenderPage(pageNumber, -950);
+                    processRenderQueue();
+                    return;
+                }
                 initKonvaForPage(pageNumber, { width: cssWidth, height: cssHeight }, overlayHost);
                 state.renderedPages[key] = true;
+                state.pageRenderSignatures[key] = paintSig;
                 state.metrics.renderedPagesCount += 1;
                 applyPendingSavedPosition(pageNumber);
 
