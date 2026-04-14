@@ -171,6 +171,15 @@
         return (Number.isFinite(state.zoomUser) && state.zoomUser > 0) ? state.zoomUser : 1;
     }
 
+    function rasterPixelRatioForLayout() {
+        var pr = window.devicePixelRatio || 1;
+        /* Theatre + 100% toolbar zoom: higher backing ratio (primary mode) for sharper PDF + Konva vs plain DPR. */
+        if (isTheaterModeActive() && Math.abs(getRequestedZoom() - 1) < 0.0001) {
+            return Math.min(3, pr * 1.22);
+        }
+        return pr;
+    }
+
     function getBaseViewportWidth() {
         return Math.max(1, Number(state.defaultViewport && state.defaultViewport.width) || 900);
     }
@@ -380,7 +389,8 @@
         }
         var dpr = window.devicePixelRatio || 1;
         var fitKey = Number(state.fitScale || 1).toFixed(4);
-        return String(s) + "|" + String(theater) + "|" + branch + "|" + String(dpr) + "|" + fitKey;
+        var trBoost = (isTheaterModeActive() && Math.abs(getRequestedZoom() - 1) < 0.0001) ? 1 : 0;
+        return String(s) + "|" + String(theater) + "|" + branch + "|" + String(dpr) + "|" + fitKey + "|tb" + String(trBoost);
     }
 
     function isPageRenderedForCurrentSignature(pageNumber) {
@@ -1596,8 +1606,8 @@
                 var canvas = shell.querySelector('canvas.tl-pdf-canvas');
                 if (canvas) {
                     try {
-                        canvas.width = Math.max(1, Math.ceil((shell.clientWidth || 1) * (window.devicePixelRatio || 1)));
-                        canvas.height = Math.max(1, Math.ceil((shell.clientHeight || 1) * (window.devicePixelRatio || 1)));
+                        canvas.width = Math.max(1, Math.ceil((shell.clientWidth || 1) * rasterPixelRatioForLayout()));
+                        canvas.height = Math.max(1, Math.ceil((shell.clientHeight || 1) * rasterPixelRatioForLayout()));
                         var pctx = canvas.getContext('2d', { alpha: false });
                         if (pctx) {
                             pctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1965,7 +1975,7 @@
                 return Promise.resolve();
             }
 
-            var pixelRatio = window.devicePixelRatio || 1;
+            var pixelRatio = rasterPixelRatioForLayout();
             var canvas = shell.canvas;
             var overlayHost = shell.overlayHost;
             var cssWidth = Math.max(1, Math.round(Number(cssViewport.width || 0)));
@@ -2047,7 +2057,7 @@
             container: hostElement,
             width: viewport.width,
             height: viewport.height,
-            pixelRatio: window.devicePixelRatio || 1
+            pixelRatio: rasterPixelRatioForLayout()
         });
 
         var annotationLayer = new Konva.Layer();
@@ -2120,7 +2130,7 @@
         stage.add(annotationLayer);
         stage.add(overlayLayer);
 
-        var konvaDpr = window.devicePixelRatio || 1;
+        var konvaDpr = rasterPixelRatioForLayout();
         if (annotationLayer.getCanvas && annotationLayer.getCanvas()) {
             annotationLayer.getCanvas().setPixelRatio(konvaDpr);
         }
