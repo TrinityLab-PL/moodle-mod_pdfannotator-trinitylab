@@ -144,6 +144,28 @@ function pdfannotator_prepare_annotations_payload($records, $context, $userid, &
         }
     }
 
+    $hascommentsbyannotation = array();
+    if (!empty($annotationids)) {
+        list($sqlhc, $paramshc) = $DB->get_in_or_equal($annotationids, SQL_PARAMS_NAMED);
+        $commentrows = $DB->get_records_select(
+            'pdfannotator_comments',
+            "annotationid $sqlhc AND isdeleted = 0",
+            $paramshc,
+            'id ASC',
+            'id,annotationid,userid,visibility,isquestion,posttype,parentid,ishidden'
+        );
+        $seehiddencomments = has_capability('mod/pdfannotator:seehiddencomments', $context);
+        foreach ($commentrows as $crow) {
+            if (!pdfannotator_can_see_comment($crow, $context)) {
+                continue;
+            }
+            if (!empty($crow->ishidden) && !$seehiddencomments) {
+                continue;
+            }
+            $hascommentsbyannotation[(int) $crow->annotationid] = true;
+        }
+    }
+
     foreach ($recordsbyannotation as $record) {
         $rid = (int)$record->id;
         $comment = isset($questionbyannotation[$rid]) ? $questionbyannotation[$rid] : null;
@@ -165,6 +187,7 @@ function pdfannotator_prepare_annotations_payload($records, $context, $userid, &
         $entry->page = (int)$record->page;
         $entry->uuid = $record->id;
         $entry->owner = ((int)$record->userid === (int)$userid);
+        $entry->hasComments = !empty($hascommentsbyannotation[$rid]);
         $annotations[] = $entry;
     }
 
