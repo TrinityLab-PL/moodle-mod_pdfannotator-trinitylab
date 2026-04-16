@@ -1065,7 +1065,7 @@
         if (!group) {
             return;
         }
-        var aid = String(group.getAttr('annotationId') || '');
+        var aid = getStableAnnotationIdForGroup(group);
         var ad = group.getAttr('annotationData') || {};
         var atype = String(ad.type || group.getAttr('annotationType') || '');
         if (!aid) {
@@ -4862,7 +4862,8 @@ function fitTextboxAroundContent(annotationData) {
             name: 'tl-annotation-group',
             draggable: isDraggableType(annotation.type)
         });
-        group.setAttr('annotationId', annotation.uuid);
+        var stableAnnoKey = (annotation.uuid != null && String(annotation.uuid) !== '') ? annotation.uuid : annotation.id;
+        group.setAttr('annotationId', stableAnnoKey != null ? stableAnnoKey : '');
         group.setAttr('annotationType', annotation.type);
         group.setAttr('annotationData', clone(annotation));
         group.setAttr('hasComments', !!annotation.hasComments);
@@ -5092,7 +5093,7 @@ function fitTextboxAroundContent(annotationData) {
         }
 
         pageState.annotationLayer.add(group);
-        pageState.annotationsById[String(annotation.uuid)] = group;
+        pageState.annotationsById[String(stableAnnoKey != null ? stableAnnoKey : (annotation.uuid != null ? annotation.uuid : (annotation.id || '')))] = group;
         ensureCommentBadgeForAnnotation(pageNumber, group);
         return group;
     }
@@ -5159,7 +5160,7 @@ function fitTextboxAroundContent(annotationData) {
         state.activeAnnotation = {
             pageNumber: pageNumber,
             group: group,
-            annotationId: String(group.getAttr('annotationId') || '')
+            annotationId: getStableAnnotationIdForGroup(group)
         };
         setCommentTarget(state.activeAnnotation.annotationId, String(group.getAttr('annotationType') || ''));
         if (group.draggable()) {
@@ -5192,7 +5193,7 @@ function fitTextboxAroundContent(annotationData) {
         state.activeAnnotation = {
             pageNumber: pageNumber,
             group: group,
-            annotationId: String(group.getAttr('annotationId') || '')
+            annotationId: getStableAnnotationIdForGroup(group)
         };
         setCommentTarget(state.activeAnnotation.annotationId, String(group.getAttr('annotationType') || ''));
 
@@ -5327,7 +5328,7 @@ function fitTextboxAroundContent(annotationData) {
         Object.keys(state.pages || {}).forEach(function (k) {
             var pn = parseInt(k, 10);
             var ps = state.pages[pn];
-            var aid = String(group.getAttr('annotationId') || '');
+            var aid = getStableAnnotationIdForGroup(group);
             if (ps && ps.annotationsById && ps.annotationsById[aid] === group) {
                 pnFound = pn;
             }
@@ -5351,7 +5352,7 @@ function fitTextboxAroundContent(annotationData) {
             return;
         }
         var pageNo = null;
-        var aid = String(group.getAttr('annotationId') || '');
+        var aid = getStableAnnotationIdForGroup(group);
         Object.keys(state.pages || {}).forEach(function (k) {
             var pn = parseInt(k, 10);
             var ps = state.pages[pn];
@@ -5386,13 +5387,31 @@ function fitTextboxAroundContent(annotationData) {
         });
     }
 
+    function getStableAnnotationIdForGroup(group) {
+        if (!group || !group.getAttr) {
+            return '';
+        }
+        var raw = group.getAttr('annotationId');
+        if (raw != null && String(raw) !== '') {
+            return String(raw);
+        }
+        var ad = group.getAttr('annotationData') || {};
+        if (ad.uuid != null && String(ad.uuid) !== '') {
+            return String(ad.uuid);
+        }
+        if (ad.id != null && String(ad.id) !== '') {
+            return String(ad.id);
+        }
+        return '';
+    }
+
     function syncCommentBadgeForGroup(group) {
         if (!group) {
             return;
         }
         var el = group.getAttr('commentBadgeEl');
         var has = !!group.getAttr('hasComments');
-        var aid = String(group.getAttr('annotationId') || '');
+        var aid = getStableAnnotationIdForGroup(group);
         var selected = state.activeAnnotation && (
             state.activeAnnotation.group === group ||
             String(state.activeAnnotation.annotationId || '') === aid
