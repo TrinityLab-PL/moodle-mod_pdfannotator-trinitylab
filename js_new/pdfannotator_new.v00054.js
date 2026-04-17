@@ -5528,10 +5528,19 @@ function fitTextboxAroundContent(annotationData) {
     function syncOrphanCommentBadgesForSelection() {
         var active = state.activeAnnotation;
         var activeSid = '';
+        var activePage = null;
+        var activeExpectedLeft = null;
+        var activeExpectedTop = null;
         if (active) {
             activeSid = normalizeAnnotationIdCandidate(getStableAnnotationIdForGroup(active.group));
             if (!activeSid) {
                 activeSid = normalizeAnnotationIdCandidate(active.annotationId);
+            }
+            activePage = parseInt(active.pageNumber, 10);
+            if (active.group && active.group.getClientRect) {
+                var activeBox = active.group.getClientRect({ skipTransform: false, skipShadow: true });
+                activeExpectedLeft = Math.max(0, activeBox.x + activeBox.width + 4);
+                activeExpectedTop = Math.max(0, activeBox.y);
             }
         }
         Object.keys(state.pages || {}).forEach(function (k) {
@@ -5545,9 +5554,27 @@ function fitTextboxAroundContent(annotationData) {
             for (bi = 0; bi < badges.length; bi++) {
                 var badge = badges[bi];
                 var bid = normalizeAnnotationIdCandidate(badge.getAttribute('data-tl-annotation-id'));
-                if (activeSid !== '' && bid !== '' && annotationIdsMatch(bid, activeSid)) {
+                if (bid !== '') {
+                    if (activeSid !== '' && annotationIdsMatch(bid, activeSid)) {
+                        badge.style.display = 'none';
+                    } else {
+                        badge.style.display = '';
+                    }
+                    continue;
+                }
+
+                if (!active || pn !== activePage || activeExpectedLeft == null || activeExpectedTop == null) {
+                    badge.style.display = '';
+                    continue;
+                }
+
+                var badgeLeft = parseFloat(badge.style.left || '');
+                var badgeTop = parseFloat(badge.style.top || '');
+                if (!isNaN(badgeLeft) && !isNaN(badgeTop)
+                    && Math.abs(badgeLeft - activeExpectedLeft) <= 14
+                    && Math.abs(badgeTop - activeExpectedTop) <= 14) {
                     badge.style.display = 'none';
-                } else if (bid !== '') {
+                } else {
                     badge.style.display = '';
                 }
             }

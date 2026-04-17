@@ -66,7 +66,7 @@ Uruchom:
 cd /var/www/html/moodle && \
   test -f mod/pdfannotator/shared/index.js && \
   test -f mod/pdfannotator/edit-with-maintenance.sh && \
-  test -f mod/pdfannotator/_backups/v120_fullscreen_default_better_20260316_035812/mod/pdfannotator/shared/index.js
+  test -f mod/pdfannotator/_backups/v157_cleanup_20260408_224229/mod/pdfannotator/shared/index.js
 ```
 
 Kryterium zaliczenia: kod wyjścia `0`.

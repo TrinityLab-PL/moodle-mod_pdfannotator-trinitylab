@@ -121,8 +121,8 @@
 - **Tylko w skrypcie:** `php admin/cli/purge_caches.php` jest wywoływane wewnątrz `mod/pdfannotator/edit-with-maintenance.sh` (`do_cmd` / `do_restore`). **Nie usuwać** tego z skryptu. Zmiany kodu pluginu idą wyłącznie przez ten skrypt (§3) — nie opisujemy oddzielnych ścieżek purge poza nim.
 
 - Przed zmianą: SANITY, SYNTAX, REGRES, SMOKE. Raport: `SANITY: OK/FAIL`, `SYNTAX: OK/FAIL`, `REGRES: OK/FAIL`, `SMOKE: OK/FAIL`.
-- **SANITY (CLI), snapshot referencyjny v120:**  
-  `cd /var/www/html/moodle && test -f mod/pdfannotator/shared/index.js && test -f mod/pdfannotator/edit-with-maintenance.sh && test -f mod/pdfannotator/_backups/v120_fullscreen_default_better_20260316_035812/mod/pdfannotator/shared/index.js` — kod wyjścia 0.
+- **SANITY (CLI), snapshot referencyjny v157:**  
+  `cd /var/www/html/moodle && test -f mod/pdfannotator/shared/index.js && test -f mod/pdfannotator/edit-with-maintenance.sh && test -f mod/pdfannotator/_backups/v157_cleanup_20260408_224229/mod/pdfannotator/shared/index.js` — kod wyjścia 0.
 - **SYNTAX (CLI):**  
   PHP: `php -l mod/pdfannotator/view.php && php -l mod/pdfannotator/lib.php`.  
   JS: `node --check /var/www/html/moodle/mod/pdfannotator/shared/index.js` (jeśli brak node: SYNTAX: SKIPPED).
