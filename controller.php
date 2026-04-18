@@ -161,7 +161,6 @@ if ($action === 'overviewquestions') {
 
     $currentpage = optional_param('page', 0, PARAM_INT);
     $itemsperpage = optional_param('itemsperpage', 5, PARAM_INT);
-    $itemsperpage = pdfannotator_normalize_itemsperpage($itemsperpage);
     $questionfilter = optional_param('questionfilter', 0, PARAM_INT); // Default 0 means: Display only unsolved/open questions.
 
     $thisannotator = $pdfannotator->id;
@@ -261,7 +260,6 @@ if ($action === 'overviewanswers') {
     $currentpage = optional_param('page', 0, PARAM_INT);
 
     $itemsperpage = optional_param('itemsperpage', 5, PARAM_INT);
-    $itemsperpage = pdfannotator_normalize_itemsperpage($itemsperpage);
     $answerfilter = optional_param('answerfilter', 1, PARAM_INT);
 
     $thisannotator = $pdfannotator->id;
@@ -301,7 +299,7 @@ if ($action === 'overviewownposts') {
 
     $currentpage = optional_param('page', 0, PARAM_INT);
     $itemsperpage = optional_param('itemsperpage', 5, PARAM_INT);
-    $itemsperpage = pdfannotator_normalize_itemsperpage($itemsperpage);
+
     $thisannotator = $pdfannotator->id;
     $thiscourse = $pdfannotator->course;
     $cmid = get_coursemodule_from_instance('pdfannotator', $thisannotator, $thiscourse, false, MUST_EXIST)->id;
@@ -334,7 +332,6 @@ if ($action === 'markreportasread') { // XXX Rename key and move it into $action
 
     $reportid = required_param('reportid', PARAM_INT);
     $itemsperpage = optional_param('itemsperpage', 5, PARAM_INT);
-    $itemsperpage = pdfannotator_normalize_itemsperpage($itemsperpage);
     $reportfilter = optional_param('reportfilter', 0, PARAM_INT);
 
     $success = $DB->update_record('pdfannotator_reports', array("id" => $reportid, "seen" => 1), $bulk = false);
@@ -373,7 +370,6 @@ if ($action === 'markreportasunread') { // XXX Rename key and move it into $acti
 
     $reportid = required_param('reportid', PARAM_INT);
     $itemsperpage = optional_param('itemsperpage', 5, PARAM_INT);
-    $itemsperpage = pdfannotator_normalize_itemsperpage($itemsperpage);
     $reportfilter = optional_param('reportfilter', 2, PARAM_INT);
 
     $success = $DB->update_record('pdfannotator_reports', array("id" => $reportid, "seen" => 0), $bulk = false);
@@ -412,7 +408,6 @@ if ($action === 'overviewreports') {
 
     $currentpage = optional_param('page', 0, PARAM_INT);
     $itemsperpage = optional_param('itemsperpage', 5, PARAM_INT);
-    $itemsperpage = pdfannotator_normalize_itemsperpage($itemsperpage);
     $reportfilter = optional_param('reportfilter', 0, PARAM_INT);
 
     $thisannotator = $pdfannotator->id;
