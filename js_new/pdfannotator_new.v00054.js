@@ -293,8 +293,8 @@
             v.style.cursor = 'grabbing';
             return;
         }
-        if (z && state.activeTool === 'cursor') {
-            v.style.cursor = 'grab';
+        if (state.activeTool === 'cursor') {
+            v.style.cursor = 'default';
         }
     }
 
@@ -5054,24 +5054,100 @@
         return { textHeight: textHeight, textWidth: textWidth };
     }
 
-    function layoutTextboxBoxUnscaled(pageElement, annotationLike) {
-        if (!annotationLike) {
-            return;
+    function measureTextboxVisualRect(pageElement, fontSizePx, fontFamily, content, options) {
+        options = options || {};
+        var whiteSpace = options.whiteSpace || 'pre';
+        var innerWidth = options.innerWidth;
+        var fs = Math.max(1, Math.round(Number(fontSizePx) || 14));
+        var parent = textboxMeasureParent(pageElement);
+        var host = document.createElement('div');
+        host.setAttribute('aria-hidden', 'true');
+        host.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;margin:0;border:none;padding:0;pointer-events:none;overflow:visible;';
+        host.style.fontSize = fs + 'px';
+        host.style.fontFamily = (fontFamily || 'Open Sans') + ', sans-serif';
+        host.style.lineHeight = '1.25';
+        host.style.whiteSpace = whiteSpace;
+        if (innerWidth > 0) {
+            host.style.width = Math.max(1, Math.round(innerWidth)) + 'px';
         }
-        var fontSize = Number(annotationLike.size || state.textSize || 14);
-        var fontFamily = annotationLike.font || state.textFont || 'Open Sans';
-        var content = String(annotationLike.content || '');
-        var lines = content.split('\n');
-        var multiLine = lines.length > 1;
-        var fontSizePx = Math.max(1, Math.round(fontSize));
+        var span = document.createElement('span');
+        span.className = 'tl-textbox-text-measure';
+        span.style.display = 'inline-block';
+        span.style.whiteSpace = whiteSpace;
+        span.textContent = (content && String(content).length) ? String(content) : ' ';
+        host.appendChild(span);
+        parent.appendChild(host);
+        var hostRect = host.getBoundingClientRect();
+        var spanRect = span.getBoundingClientRect();
+        var visualTop = spanRect.top - hostRect.top;
+        var visualHeight = spanRect.height || 0;
+        var visualWidth = spanRect.width || 0;
+        var lineBoxHeight = host.offsetHeight || Math.max(1, Math.round(fs * 1.25));
+        if (host.parentNode) {
+            host.parentNode.removeChild(host);
+        }
+        if (!visualHeight || !visualWidth) {
+            var fb = measureTextboxBlock(pageElement, fontSizePx, fontFamily, content, { whiteSpace: whiteSpace, innerWidth: innerWidth });
+            visualHeight = fb.textHeight;
+            visualWidth = fb.textWidth;
+            visualTop = 0;
+            lineBoxHeight = fb.textHeight;
+        }
+        return {
+            visualTop: visualTop,
+            visualHeight: visualHeight,
+            visualWidth: visualWidth,
+            lineBoxHeight: lineBoxHeight
+        };
+    }
+
+    function syncTextboxMetrics(annotation, pageElement, scale) {
+        if (!annotation) {
+            return null;
+        }
+        var s = scale || state.scale || 1;
+        var fontSize = Number(annotation.size || state.textSize || 14);
+        var fontFamily = annotation.font || state.textFont || 'Open Sans';
+        var content = String(annotation.content || '');
+        var multiLine = content.split('\n').length > 1;
+        var fontSizePx = Math.max(1, Math.round(fontSize * s));
         var pad = textboxPaddingPx(fontSizePx);
-        var measureOpts = { whiteSpace: multiLine ? 'pre-wrap' : 'pre' };
-        if (multiLine && Number(annotationLike.width) > 1) {
-            measureOpts.innerWidth = Math.max(1, Math.round(Number(annotationLike.width) - 2 * pad));
+        var displayW;
+        var displayH;
+
+        if (multiLine) {
+            var measureOpts = { whiteSpace: 'pre-wrap' };
+            var unscaledW = Number(annotation.width) || 0;
+            if (unscaledW > 1) {
+                measureOpts.innerWidth = Math.max(1, Math.round(unscaledW * s - 2 * pad));
+            }
+            var measured = measureTextboxBlock(pageElement, fontSizePx, fontFamily, content, measureOpts);
+            var lineParts = content.split("\n");
+            var lineCount = Math.max(1, lineParts.length);
+            var lineH = Math.round(fontSizePx * 1.25);
+            displayH = Math.ceil(Math.max(measured.textHeight, lineCount * lineH) + 2 * pad);
+            displayW = Math.max(40, Math.ceil(measured.textWidth + 2 * pad + 4));
+        } else {
+            var visual = measureTextboxVisualRect(pageElement, fontSizePx, fontFamily, content, { whiteSpace: 'pre' });
+            displayH = Math.ceil(visual.visualHeight + 2 * pad);
+            displayW = Math.max(40, Math.ceil(visual.visualWidth + 2 * pad + 4));
         }
-        var measured = measureTextboxBlock(pageElement, fontSizePx, fontFamily, content, measureOpts);
-        annotationLike.width = Math.max(40, Math.ceil(measured.textWidth + 2 * pad + 4));
-        annotationLike.height = Math.ceil(measured.textHeight + 2 * pad);
+
+        annotation.width = Math.max(40, Math.ceil(displayW / s));
+        annotation.height = Math.max(1, Math.ceil(displayH / s));
+        return {
+            displayWidth: displayW,
+            displayHeight: displayH,
+            pad: pad,
+            fontSizePx: fontSizePx,
+            fontFamily: fontFamily,
+            content: content,
+            multiLine: multiLine
+        };
+    }
+
+    function layoutTextboxBoxUnscaled(pageElement, annotationLike) {
+        syncTextboxMetrics(annotationLike, pageElement, 1);
     }
 
     function layoutTextboxLabelEl(labelEl, annotation, scale, pageElement) {
@@ -5079,15 +5155,20 @@
             return;
         }
         var s = scale || state.scale || 1;
+        var metrics = syncTextboxMetrics(annotation, pageElement, s);
+        if (!metrics) {
+            return;
+        }
         var boxX = Math.round((annotation.x || 0) * s);
         var boxY = Math.round((annotation.y || 0) * s);
-        var boxW = Math.max(12, Math.ceil((annotation.width || 1) * s));
-        var boxH = Math.max(12, Math.ceil((annotation.height || 1) * s));
-        var fontSizePx = Math.max(1, Math.round((annotation.size || state.textSize || 14) * s));
-        var pad = textboxPaddingPx(fontSizePx);
-        var fontFamily = annotation.font || state.textFont || 'Open Sans';
-        var content = String(annotation.content || '');
-        var labelMultiLine = content.split('\n').length > 1;
+        var boxW = Math.max(12, metrics.displayWidth);
+        var boxH = Math.max(12, metrics.displayHeight);
+        var fontSizePx = metrics.fontSizePx;
+        var pad = metrics.pad;
+        var fontFamily = metrics.fontFamily;
+        var content = metrics.content;
+        var labelMultiLine = metrics.multiLine;
+        var _labelColor = (annotation.color === '#1f2937' || !annotation.color) ? '#111827' : annotation.color;
 
         labelEl.style.position = 'absolute';
         labelEl.style.left = boxX + 'px';
@@ -5095,32 +5176,48 @@
         labelEl.style.width = boxW + 'px';
         labelEl.style.height = boxH + 'px';
         labelEl.style.boxSizing = 'border-box';
-        labelEl.style.paddingLeft = pad + 'px';
-        labelEl.style.paddingRight = pad + 'px';
-        labelEl.style.fontSize = fontSizePx + 'px';
-        labelEl.style.fontFamily = fontFamily + ', sans-serif';
-        labelEl.style.lineHeight = '1.25';
         labelEl.style.overflow = 'hidden';
         labelEl.style.wordBreak = 'normal';
-        labelEl.style.justifyContent = 'flex-start';
         labelEl.style.textAlign = 'left';
+        labelEl.style.setProperty('color', _labelColor, 'important');
+        labelEl.style.setProperty('-webkit-text-fill-color', _labelColor, 'important');
+
+        while (labelEl.firstChild) {
+            labelEl.removeChild(labelEl.firstChild);
+        }
 
         if (labelMultiLine) {
             labelEl.style.whiteSpace = 'pre-wrap';
             labelEl.style.display = 'flex';
             labelEl.style.alignItems = 'flex-start';
+            labelEl.style.justifyContent = 'flex-start';
             labelEl.style.paddingTop = pad + 'px';
             labelEl.style.paddingBottom = pad + 'px';
+            labelEl.style.paddingLeft = pad + 'px';
+            labelEl.style.paddingRight = pad + 'px';
+            labelEl.style.fontSize = fontSizePx + 'px';
+            labelEl.style.fontFamily = fontFamily + ', sans-serif';
+            labelEl.style.lineHeight = '1.25';
+            labelEl.textContent = content;
         } else {
-            labelEl.style.whiteSpace = 'pre';
-            var measured = measureTextboxBlock(pageElement, fontSizePx, fontFamily, content, { whiteSpace: 'pre' });
-            var slack = Math.max(0, boxH - 2 * pad - measured.textHeight);
-            var padTop = pad + Math.floor(slack / 2);
-            var padBottom = pad + Math.ceil(slack / 2);
             labelEl.style.display = 'block';
-            labelEl.style.alignItems = '';
-            labelEl.style.paddingTop = padTop + 'px';
-            labelEl.style.paddingBottom = padBottom + 'px';
+            labelEl.style.padding = '0';
+            labelEl.style.fontSize = fontSizePx + 'px';
+            labelEl.style.fontFamily = fontFamily + ', sans-serif';
+            labelEl.style.lineHeight = '1.25';
+            var visual = measureTextboxVisualRect(pageElement, fontSizePx, fontFamily, content, { whiteSpace: 'pre' });
+            var textSpan = document.createElement('span');
+            textSpan.className = 'tl-textbox-text';
+            textSpan.textContent = content;
+            textSpan.style.position = 'absolute';
+            textSpan.style.left = pad + 'px';
+            textSpan.style.top = '0';
+            textSpan.style.whiteSpace = 'pre';
+            textSpan.style.lineHeight = '1.25';
+            textSpan.style.display = 'inline-block';
+            var translateY = Math.max(0, (boxH - visual.visualHeight) / 2) - visual.visualTop;
+            textSpan.style.transform = 'translateY(' + Math.round(translateY) + 'px)';
+            labelEl.appendChild(textSpan);
         }
     }
 
@@ -5264,8 +5361,7 @@
         editor.addEventListener('input', resizeEditorToContentWithBtn);
         editor.addEventListener('keyup', resizeEditorToContentWithBtn);
         updateSaveBtnPos();
-        annotationData.width = editor.offsetWidth / (state.scale || 1);
-        annotationData.height = editor.offsetHeight / (state.scale || 1);
+        syncTextboxMetrics(annotationData, pageElement, state.scale || 1);
         var _repl = redrawOneAnnotation(pageNumber, annotationData.uuid, annotationData);
         if (_repl) {
             var _lbl = _repl.getAttr('textboxLabelEl');
@@ -5306,19 +5402,7 @@
                 annotationData.x = _anchorX;
             }
             annotationData.y = _anchorY;
-            var wrappedH = annotationData.height;
-            (function () {
-                var wrapEl = document.createElement('div');
-                wrapEl.setAttribute('aria-hidden', 'true');
-                var _wrapPad = textboxPaddingPx(displayFontSize);
-                var _wrapInnerW = Math.max(1, Math.ceil(annotationData.width * scale) - 2 * _wrapPad);
-                var _wrapMeasured = measureTextboxBlock(pageElement, displayFontSize, editorFontFamily, annotationData.content || '', {
-                    whiteSpace: 'pre-wrap',
-                    innerWidth: (_tbLines === 1) ? _wrapInnerW : Math.max(1, editor.offsetWidth - 2 * _wrapPad)
-                });
-                wrappedH = Math.ceil((_wrapMeasured.textHeight + 2 * _wrapPad) / scale);
-            })();
-            annotationData.height = Math.max(annotationData.height, editor.offsetHeight / scale, wrappedH);
+            syncTextboxMetrics(annotationData, pageElement, scale);
             redrawOneAnnotation(pageNumber, annotationData.uuid, annotationData);
             logTextboxDebug({
                 kind: 'textbox-commit',
@@ -5508,32 +5592,19 @@
                 content: content
             };
 
-            fitTextboxAroundContent(measure);
-
             var scale = state.scale || 1;
+            syncTextboxMetrics(measure, pageElement, scale);
+
             var _tbLines2 = content.split('\n').length;
-            var wrappedHeightUnscaled = measure.height;
-            (function () {
-                var wrapEl = document.createElement('div');
-                wrapEl.setAttribute('aria-hidden', 'true');
-                var _wrapPad2 = textboxPaddingPx(displayFontSize);
-                var _wrapInnerW2 = Math.max(1, Math.ceil(measure.width * scale) - 2 * _wrapPad2);
-                var _wrapMeasured2 = measureTextboxBlock(pageElement, displayFontSize, editorFontFamily, content, {
-                    whiteSpace: 'pre-wrap',
-                    innerWidth: (_tbLines2 === 1) ? _wrapInnerW2 : Math.max(1, editor.offsetWidth - 2 * _wrapPad2)
-                });
-                wrappedHeightUnscaled = Math.ceil((_wrapMeasured2.textHeight + 2 * _wrapPad2) / scale);
-            })();
             var _annX = (_tbLines2 === 1)
                 ? textboxUnscaledXAlignEditorText(editor, editorFontSize, scale)
                 : unscaledBoxX;
-            var _annW = (_tbLines2 === 1) ? measure.width : Math.max(measure.width, editor.offsetWidth / scale);
             var annotation = {
                 type: 'textbox',
                 x: _annX,
                 y: unscaledBoxY,
-                width: _annW,
-                height: Math.max(measure.height, editor.offsetHeight / scale, wrappedHeightUnscaled),
+                width: measure.width,
+                height: measure.height,
                 size: editorFontSize,
                 font: editorFontFamily,
                 color: state.textColor || '#111827',
@@ -5649,6 +5720,8 @@
                 fill: 'rgba(245, 158, 11, 0.18)'
             }));
         } else if (annotation.type === 'textbox') {
+            var pageElTb = getPageElement(pageNumber);
+            syncTextboxMetrics(annotation, pageElTb, scale);
             var boxX = Math.round(annotation.x * scale);
             var boxY = Math.round(annotation.y * scale);
             var boxWidth = Math.max(12, Math.ceil(annotation.width * scale));
@@ -5675,11 +5748,7 @@
             labelEl.style.setProperty('color', _labelColor, 'important');
             labelEl.style.setProperty('-webkit-text-fill-color', _labelColor, 'important');
             labelEl.style.pointerEvents = 'none';
-            labelEl.style.whiteSpace = 'pre-wrap';
-            labelEl.style.wordBreak = 'break-word';
-            labelEl.textContent = annotation.content || '';
             applyTextboxLabelLayout(pageNumber, labelEl, annotation, scale);
-            labelEl.textContent = annotation.content || '';
             var pageEl = getPageElement(pageNumber);
             if (pageEl) {
                 pageEl.appendChild(labelEl);
