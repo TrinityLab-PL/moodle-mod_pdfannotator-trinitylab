@@ -6,8 +6,13 @@
 
 (function() {
     'use strict';
+    function debugFs() {
+        if (window.__TL_DEBUG_PDFANNOTATOR && window.console && console.log) {
+            console.log.apply(console, arguments);
+        }
+    }
     
-    console.log('TL Fullscreen Enhanced loaded (simple version)');
+    debugFs('TL Fullscreen Enhanced loaded (simple version)');
 
     // Auto-start theater mode if defaultfullscreen=1
     function tryAutoTheater() {
@@ -56,7 +61,7 @@
     function patchNewUIFullscreenButton() {
         var btn = document.querySelector('[data-proxy-action="fullscreen"]');
         if (!btn || btn.getAttribute('data-tl-patched') === '1') return btn;
-        console.log('TL Fullscreen: patching New UI fullscreen button');
+        debugFs('TL Fullscreen: patching New UI fullscreen button');
         btn.setAttribute('data-tl-patched', '1');
         btn.id = 'tl-fullscreen-btn';
         btn.classList.add('tl-fullscreen-proxy-btn');
@@ -78,13 +83,13 @@
         delays.forEach(function(ms) {
             setTimeout(function() {
                 if (patchNewUIFullscreenButton()) {
-                    console.log('TL Fullscreen: New UI button patched at ' + ms + 'ms');
+                    debugFs('TL Fullscreen: New UI button patched at ' + ms + 'ms');
                 }
             }, ms);
         });
         var observer = new MutationObserver(function() {
             if (patchNewUIFullscreenButton()) {
-                console.log('TL Fullscreen: New UI button patched via MutationObserver');
+                debugFs('TL Fullscreen: New UI button patched via MutationObserver');
                 observer.disconnect();
             }
         });
@@ -96,7 +101,7 @@
         var pdfContainer = document.querySelector('#viewer');
         
         if (!pdfContainer) {
-            console.log('PDF container not found');
+            debugFs('PDF container not found');
             return;
         }
         
@@ -117,7 +122,7 @@
                 var dropdownButton = document.querySelector("#toolbar-dropdown-button");
                 toolbarContent.insertBefore(fullscreenBtn, dropdownButton);
             } else {
-                console.log('Toolbar not found');
+                debugFs('Toolbar not found');
                 return;
             }
         }
@@ -223,13 +228,13 @@
 // Toggle komentarzy - JEDYNY (skipped for tl-layout-v4 — pdfannotator_new handles state)
 (function() {
     setTimeout(function() {
-    console.log("CC setTimeout start");
+    debugFs("CC setTimeout start");
         var rootV4 = document.querySelector('#pdfannotator_index.tl-layout-v4');
-        if (rootV4) { console.log('CC skipped: tl-layout-v4'); return; }
+        if (rootV4) { debugFs('CC skipped: tl-layout-v4'); return; }
         var wrapper = document.querySelector('#comment-wrapper');
         var toolbarContent = document.querySelector('#toolbarContent');
         var fullscreenBtn = document.querySelector('#tl-fullscreen-btn');
-        console.log("CC check elements:", wrapper, toolbarContent, fullscreenBtn);
+        debugFs("CC check elements:", wrapper, toolbarContent, fullscreenBtn);
         if (!wrapper || !toolbarContent) return;
         
         var btn = document.createElement('button');
