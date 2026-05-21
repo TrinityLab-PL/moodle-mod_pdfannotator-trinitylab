@@ -5009,6 +5009,13 @@
         };
     }
 
+    function textboxMinHeightPx(fontSize) {
+        var fs = Math.max(1, Number(fontSize) || 14);
+        var lineHeight = fs * 1.25;
+        var paddingY = Math.round(0.4 * fs);
+        return Math.ceil(lineHeight + paddingY * 2);
+    }
+
     function computeWrappedLineCount(pageElement, text, widthPx, paddingX, paddingY, fontSizePx, fontFamily) {
         try {
             if (!pageElement) { return 1; }
@@ -5021,7 +5028,7 @@
             var innerWidth = Math.max(1, Math.round(widthPx - 2 * paddingX));
             el.style.width = innerWidth + 'px';
             el.style.padding = Math.max(0, Math.round(paddingY)) + 'px ' + Math.max(0, Math.round(paddingX)) + 'px';
-            el.style.fontSize = Math.max(10, Math.round(fontSizePx)) + 'px';
+            el.style.fontSize = Math.max(1, Math.round(fontSizePx)) + 'px';
             el.style.fontFamily = (fontFamily || 'Open Sans') + ', sans-serif';
             el.style.lineHeight = '1.25';
             el.textContent = String(text || '');
@@ -5039,7 +5046,7 @@
 
     function textboxUnscaledXAlignEditorText(editor, fontSizeUnscaled, scale) {
         var s = scale || 1;
-        var fsPx = Math.max(10, Math.round(fontSizeUnscaled * s));
+        var fsPx = Math.max(1, Math.round(fontSizeUnscaled * s));
         var padLpx = Math.round(0.4 * fsPx);
         var edPad = 0;
         try {
@@ -5059,7 +5066,7 @@
         var boxY = Math.round((annotation.y || 0) * s);
         var boxW = Math.max(12, Math.ceil((annotation.width || 1) * s));
         var boxH = Math.max(12, Math.ceil((annotation.height || 1) * s));
-        var fontSizePx = Math.max(10, Math.round((annotation.size || state.textSize || 14) * s));
+        var fontSizePx = Math.max(1, Math.round((annotation.size || state.textSize || 14) * s));
         var padX = Math.round(0.4 * fontSizePx);
         var padY = Math.round(0.4 * fontSizePx);
         var padRight = padX;
@@ -5080,8 +5087,10 @@
         labelEl.style.overflow = 'hidden';
         labelEl.style.whiteSpace = 'pre';
         labelEl.style.wordBreak = 'normal';
+        var labelLines = String(annotation.content || '').split('\n');
+        var labelMultiLine = labelLines.length > 1;
         labelEl.style.display = 'flex';
-        labelEl.style.alignItems = 'flex-start';
+        labelEl.style.alignItems = labelMultiLine ? 'flex-start' : 'center';
         labelEl.style.justifyContent = 'flex-start';
         labelEl.style.textAlign = 'left';
     }
@@ -5090,7 +5099,7 @@ function fitTextboxAroundContent(annotationData) {
         if (!annotationData) {
             return;
         }
-        var fontSize = Math.max(10, Number(annotationData.size || state.textSize || 14));
+        var fontSize = Number(annotationData.size || state.textSize || 14);
         var fontFamily = annotationData.font || state.textFont || 'Open Sans';
         var content = String(annotationData.content || '');
         var lines = content.split('\n');
@@ -5121,7 +5130,8 @@ function fitTextboxAroundContent(annotationData) {
         var paddingY = Math.round(0.4 * fontSize);
 
         var newWidth = Math.max(40, Math.ceil(maxWidth + paddingLeft + paddingRight + 4));
-        var newHeight = Math.max(30, Math.ceil(textHeight + paddingY * 2));
+        var minHeight = textboxMinHeightPx(fontSize);
+        var newHeight = Math.max(minHeight, Math.ceil(textHeight + paddingY * 2));
 
         annotationData.width = newWidth;
         annotationData.height = newHeight;
@@ -5157,13 +5167,14 @@ function fitTextboxAroundContent(annotationData) {
         editor.dataset.annotationId = String(annotationData.uuid);
         editor.value = annotationData.content || '';
         editor.setAttribute('wrap', 'off');
-        var editorFontSize = Math.max(10, Number(annotationData.size || state.textSize || 14));
-        var displayFontSize = Math.max(10, Math.round(editorFontSize * (state.scale || 1)));
+        var editorFontSize = Number(annotationData.size || state.textSize || 14);
+        var displayFontSize = Math.max(1, Math.round(editorFontSize * (state.scale || 1)));
+        var editorMinH = Math.ceil(textboxMinHeightPx(editorFontSize) * (state.scale || 1));
         var editorFontFamily = annotationData.font || state.textFont || 'Open Sans';
         editor.style.left = (annotationData.x * state.scale) + 'px';
         editor.style.top = (annotationData.y * state.scale) + 'px';
         editor.style.width = Math.max(80, annotationData.width * state.scale) + 'px';
-        editor.style.height = Math.max(36, annotationData.height * state.scale) + 'px';
+        editor.style.height = Math.max(editorMinH, annotationData.height * state.scale) + 'px';
         editor.style.fontSize = displayFontSize + 'px';
         editor.style.fontFamily = editorFontFamily + ', sans-serif';
         var _c = annotationData.color || '#111827';
@@ -5192,7 +5203,7 @@ function fitTextboxAroundContent(annotationData) {
             fitTextboxAroundContent(tmp);
             var scale = state.scale || 1;
             var w = Math.max(80, Math.ceil(tmp.width * scale));
-            var h = Math.max(36, Math.ceil(tmp.height * scale));
+            var h = Math.max(editorMinH, Math.ceil(tmp.height * scale));
             editor.style.width = w + 'px';
             editor.style.height = h + 'px';
         }
@@ -5330,9 +5341,10 @@ function fitTextboxAroundContent(annotationData) {
         editor.value = '';
         editor.setAttribute('wrap', 'off');
 
-        var editorFontSize = Math.max(10, Number(state.textSize || 14));
+        var editorFontSize = Number(state.textSize || 14);
         var editorFontFamily = state.textFont || 'Open Sans';
-        var displayFontSize = Math.max(10, Math.round(editorFontSize * (state.scale || 1)));
+        var displayFontSize = Math.max(1, Math.round(editorFontSize * (state.scale || 1)));
+        var editorMinH = Math.ceil(textboxMinHeightPx(editorFontSize) * (state.scale || 1));
 
         var paddingTop = 5;
         var paddingLeft = 6;
@@ -5340,9 +5352,9 @@ function fitTextboxAroundContent(annotationData) {
         editor.style.left = (pointerX - paddingLeft) + 'px';
         editor.style.top = (pointerY - paddingTop - baselineOffset + 3) + 'px';
         editor.style.minWidth = '60px';
-        editor.style.minHeight = '36px';
+        editor.style.minHeight = editorMinH + 'px';
         editor.style.width = '60px';
-        editor.style.height = '36px';
+        editor.style.height = editorMinH + 'px';
         editor.style.fontSize = displayFontSize + 'px';
         editor.style.fontFamily = editorFontFamily + ', sans-serif';
         editor.style.color = state.textColor || '#111827';
@@ -5376,7 +5388,7 @@ function fitTextboxAroundContent(annotationData) {
             fitTextboxAroundContent(tmp);
             var scale = state.scale || 1;
             var w = Math.max(60, Math.ceil(tmp.width * scale));
-            var h = Math.max(36, Math.ceil(tmp.height * scale));
+            var h = Math.max(editorMinH, Math.ceil(tmp.height * scale));
             editor.style.width = w + 'px';
             editor.style.height = h + 'px';
         }
@@ -5617,7 +5629,7 @@ function fitTextboxAroundContent(annotationData) {
                 stroke: 'rgba(235, 242, 252, 0.35)',
                 strokeWidth: 0
             }));
-            var textFontSizePx = Math.max(10, Math.round((annotation.size || state.textSize || 14) * scale));
+            var textFontSizePx = Math.max(1, Math.round((annotation.size || state.textSize || 14) * scale));
             var textPaddingX = Math.round(0.4 * textFontSizePx);
             var textPaddingY = Math.round(0.4 * textFontSizePx);
             var labelEl = document.createElement('div');
