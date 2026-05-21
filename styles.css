@@ -2486,7 +2486,6 @@ body.tl-pdf-fullscreen .path-mod-pdfannotator .tl-save-textbox {
     pointer-events: none;
     margin: 0;
     padding: 0;
-    display: flex;
     box-sizing: border-box;
     -webkit-font-smoothing: subpixel-antialiased;
     -moz-osx-font-smoothing: auto;
