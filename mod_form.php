@@ -117,7 +117,7 @@ class mod_pdfannotator_mod_form extends moodleform_mod {
         $mform->addElement('advcheckbox', 'defaultfullscreen', get_string('setting_defaultfullscreen', 'pdfannotator'),
             get_string('setting_defaultfullscreen', 'pdfannotator'), null, array(0, 1));
         $mform->setType('defaultfullscreen', PARAM_BOOL);
-        $mform->setDefault('defaultfullscreen', 0);
+        $mform->setDefault('defaultfullscreen', !empty($config->defaultfullscreen));
         $mform->addHelpButton('defaultfullscreen', 'setting_defaultfullscreen', 'pdfannotator');
 
         // Add legacy files flag only if used.
