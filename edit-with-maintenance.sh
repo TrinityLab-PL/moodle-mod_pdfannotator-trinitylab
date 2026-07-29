@@ -16,7 +16,7 @@ cleanup_on_exit() {
 }
 trap cleanup_on_exit EXIT
 
-BACKUP_INDEX="/root/trinity_lab_backup/v186_textsize_svg_icon_v2_taller12_20260728_192727/mod/pdfannotator/shared/index.js"
+BACKUP_INDEX="/root/trinity_lab_backup/v188_pdf_edu_dnd_rebrand_20260729_131915/mod/pdfannotator/shared/index.js"
 PROTECTED_FILES=(
   "mod/pdfannotator/shared/index.js"
   "mod/pdfannotator/styles.css"
