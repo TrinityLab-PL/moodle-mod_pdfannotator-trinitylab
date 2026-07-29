@@ -54,6 +54,10 @@ if ($ADMIN->fulltree) {
             get_string('global_setting_defaultfullscreen', 'pdfannotator'),
             get_string('global_setting_defaultfullscreen_desc', 'pdfannotator'), 0));
 
+    $settings->add(new admin_setting_configcheckbox('mod_pdfannotator/enabledndforpdf',
+            get_string('global_setting_enabledndforpdf', 'pdfannotator'),
+            get_string('global_setting_enabledndforpdf_desc', 'pdfannotator'), 0));
+
     // Define what API to use for converting latex formulas into png.
     $options = array();
     $options[LATEX_TO_PNG_MOODLE] = get_string("global_setting_latexusemoodle", "pdfannotator");

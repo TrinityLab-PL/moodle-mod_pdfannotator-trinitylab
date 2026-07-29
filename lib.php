@@ -496,34 +496,73 @@ function pdfannotator_export_contents($cm, $baseurl) {
 
 /**
  * Register the ability to handle drag and drop file uploads
- * @return array containing details of the files / types the mod can handle
+ * @return array|false containing details of the files / types the mod can handle
  */
-// function pdfannotator_dndupload_register() {
-    // return array('files' => array(
-                   // array('extension' => 'pdf', 'message' => get_string('dnduploadpdfannotator', 'mod_pdfannotator'))
-                // ));
-// }
+function pdfannotator_dndupload_register() {
+    $config = get_config('mod_pdfannotator');
+    if (empty($config->enabledndforpdf)) {
+        return false;
+    }
+    return array('files' => array(
+        array('extension' => 'pdf', 'message' => get_string('dnduploadpdfannotator', 'mod_pdfannotator'))
+    ));
+}
 
 /**
  * Handle a file that has been uploaded
  * @param object $uploadinfo details of the file / content that has been uploaded
  * @return int instance id of the newly created mod
  */
-// function pdfannotator_dndupload_handle($uploadinfo) {
-// // Gather the required info.
-// $data = new stdClass();
-// $data->course = $uploadinfo->course->id;
-// $data->name = $uploadinfo->displayname;
-// $data->intro = '';
-// $data->introformat = FORMAT_HTML;
-// $data->coursemodule = $uploadinfo->coursemodule;
-// $data->files = $uploadinfo->draftitemid;
-//
-// // Set the display options to the site defaults.
-// $config = get_config('pdfannotator');//
-//
-// return pdfannotator_add_instance($data, null);
-// }
+function pdfannotator_dndupload_handle($uploadinfo) {
+    global $USER;
+
+    $config = get_config('mod_pdfannotator');
+    $usercontext = context_user::instance($USER->id);
+    $fs = get_file_storage();
+    $draftfiles = $fs->get_area_files($usercontext->id, 'user', 'draft', $uploadinfo->draftitemid, 'id', false);
+    if (count($draftfiles) !== 1) {
+        return 0;
+    }
+    $draftfile = reset($draftfiles);
+    if ($draftfile->get_mimetype() !== 'application/pdf') {
+        return 0;
+    }
+
+    $data = new stdClass();
+    $data->course = $uploadinfo->course->id;
+    $data->name = $uploadinfo->displayname;
+    $data->intro = '';
+    $data->introformat = FORMAT_HTML;
+    $data->coursemodule = $uploadinfo->coursemodule;
+    $data->files = $uploadinfo->draftitemid;
+
+    $data->usevotes = isset($config->usevotes) ? $config->usevotes : 1;
+    $data->use_studenttextbox = isset($config->use_studenttextbox) ? $config->use_studenttextbox : 0;
+    $data->use_studentdrawing = isset($config->use_studentdrawing) ? $config->use_studentdrawing : 0;
+    $data->useprint = isset($config->useprint) ? $config->useprint : 0;
+    $data->useprintcomments = isset($config->useprintcomments) ? $config->useprintcomments : 0;
+    $data->useprivatecomments = isset($config->use_private_comments) ? $config->use_private_comments : 0;
+    $data->useprotectedcomments = isset($config->use_protected_comments) ? $config->use_protected_comments : 0;
+    $data->defaultfullscreen = !empty($config->defaultfullscreen);
+
+    $now = time();
+    $data->timecreated = $now;
+    $data->timemodified = $now;
+
+    $instanceid = pdfannotator_add_instance($data, null);
+
+    $context = context_module::instance($uploadinfo->coursemodule);
+    $files = $fs->get_area_files($context->id, 'mod_pdfannotator', 'content', 0, 'sortorder', false);
+    if (count($files) !== 1) {
+        return 0;
+    }
+    $file = reset($files);
+    if ($file->get_mimetype() !== 'application/pdf') {
+        return 0;
+    }
+
+    return $instanceid;
+}
 
 /**
  * Mark the activity completed (if required) and trigger the course_module_viewed event.
