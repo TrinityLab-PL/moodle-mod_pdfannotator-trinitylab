@@ -207,6 +207,24 @@
 .path-mod-pdfannotator .textLayer .endOfContent.active {
 }
 
+.path-mod-pdfannotator #viewer .textLayer {
+    top: 0;
+    right: auto;
+    bottom: auto;
+    pointer-events: none;
+}
+
+.path-mod-pdfannotator #viewer.tl-tool-cursor .textLayer {
+    pointer-events: auto;
+    user-select: text;
+    -webkit-user-select: text;
+    opacity: 1;
+}
+
+.path-mod-pdfannotator #viewer.tl-tool-cursor .tl-konva-host {
+    pointer-events: none;
+}
+
 /******** Annotation Layer *********/
 .path-mod-pdfannotator {
     --annotation-unfocused-field-background: url("data:image/svg+xml;charset=UTF-8,<svg width='1px' height='1px' xmlns='http://www.w3.org/2000/svg'><rect width='100%' height='100%' style='fill:rgba(0, 54, 255, 0.13);'/></svg>");
@@ -1015,11 +1033,11 @@ body {
     cursor: pointer !important;
 }
 
-/* Kursor I-beam dla narzędzia Textbox */
+/* Textbox cursor comes from JS custom I-beam + A */
 .path-mod-pdfannotator #viewer.tl-tool-textbox,
 .path-mod-pdfannotator #viewer.tl-tool-textbox .tl-konva-host,
 .path-mod-pdfannotator #viewer.tl-tool-textbox .tl-pdf-canvas {
-    cursor: text;
+    cursor: inherit;
 }
 
 /******************************************** START: mainly for overview page *******************************************/
@@ -2026,6 +2044,9 @@ body.tl-inspect-mode #viewer .tl-inline-text-editor {
 }
 
 body.tl-pdf-fullscreen #viewer .tl-konva-host {
+    z-index: 1000000000 !important;
+}
+body.tl-pdf-fullscreen #viewer.tl-tool-cursor .textLayer {
     z-index: 1000000000 !important;
 }
 body.tl-pdf-fullscreen #viewer .tl-textbox-label,

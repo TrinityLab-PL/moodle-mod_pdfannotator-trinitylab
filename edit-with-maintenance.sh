@@ -16,7 +16,51 @@ cleanup_on_exit() {
 }
 trap cleanup_on_exit EXIT
 
-BACKUP_INDEX="/root/trinity_lab_backup/v188_pdf_edu_dnd_rebrand_20260729_131915/mod/pdfannotator/shared/index.js"
+BACKUP_POINTER="$MOODLE_ROOT/mod/pdfannotator/_backups/CURRENT_RESTORE.txt"
+BACKUP_HARDCODED_FALLBACK="v189_tab_utf8_20260818_205924"
+
+backup_index_path_for_name() {
+  local name="$1"
+  local p
+  for p in \
+    "/root/trinity_lab_backup/${name}/mod/pdfannotator/shared/index.js" \
+    "$MOODLE_ROOT/mod/pdfannotator/_backups/${name}/mod/pdfannotator/shared/index.js"; do
+    if [ -f "$p" ]; then
+      echo "$p"
+      return 0
+    fi
+  done
+  return 1
+}
+
+find_latest_backup_index() {
+  local base_dir="$1"
+  local name
+  name=$(ls -1 "$base_dir" 2>/dev/null | grep -E "^v[0-9]+_" | sort -V | tail -1)
+  [ -z "$name" ] && return 1
+  backup_index_path_for_name "$name"
+}
+
+resolve_backup_index() {
+  local name path
+  if [ -f "$BACKUP_POINTER" ]; then
+    name=$(head -1 "$BACKUP_POINTER" | tr -d "[:space:]")
+    if [ -n "$name" ]; then
+      path=$(backup_index_path_for_name "$name" 2>/dev/null) && { echo "$path"; return 0; }
+      echo "WARN: CURRENT_RESTORE.txt -> ${name} brak index.js, fallback auto-detect" >&2
+    fi
+  fi
+  path=$(find_latest_backup_index "/root/trinity_lab_backup" 2>/dev/null) && { echo "$path"; return 0; }
+  path=$(find_latest_backup_index "$MOODLE_ROOT/mod/pdfannotator/_backups" 2>/dev/null) && { echo "$path"; return 0; }
+  path=$(backup_index_path_for_name "$BACKUP_HARDCODED_FALLBACK" 2>/dev/null) && {
+    echo "WARN: hardcoded fallback $BACKUP_HARDCODED_FALLBACK" >&2
+    echo "$path"
+    return 0
+  }
+  echo "Błąd: nie można rozwiązać ścieżki backup index.js" >&2
+  return 1
+}
+
 PROTECTED_FILES=(
   "mod/pdfannotator/shared/index.js"
   "mod/pdfannotator/styles.css"
@@ -38,6 +82,9 @@ unlock_file() {
 }
 
 do_restore() {
+  local BACKUP_INDEX
+  BACKUP_INDEX=$(resolve_backup_index) || exit 1
+  echo "Restore from: $(echo "$BACKUP_INDEX" | grep -oE 'v[0-9]+_[^/]+' | head -1)"
   php admin/cli/maintenance.php --enable
   MAINTENANCE_ENABLED=1
   unlock_file
@@ -79,7 +126,7 @@ case "${1:-}" in
     echo "Użycie:"
     echo "  $0 --lock                    # ustaw plik tylko do odczytu (444)"
     echo "  $0 --unlock                  # zezwól na zapis (644)"
-    echo "  $0 --restore                 # przywróć shared/index.js z najnowszego backupu (v*)"
+    echo "  $0 --restore                 # przywróć shared/index.js (CURRENT_RESTORE.txt lub auto vNNN)"
     echo "  $0 --cmd 'sed -i \"s/a/b/\" $PROTECTED'  # wykonaj polecenie z maintenance"
     exit 1
     ;;

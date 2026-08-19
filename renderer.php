@@ -106,7 +106,11 @@ class mod_pdfannotator_renderer extends plugin_renderer_base {
         $tabname = get_string($namekey, 'pdfannotator', $nameargs);
         if ($pdfannotatorname) {
             $plain = strip_tags($pdfannotatorname);
-            strlen($plain) > 20 ? $tabname = substr($plain, 0, 21) . "..." : $tabname = $plain;
+            if (core_text::strlen($plain) > 20) {
+                $tabname = core_text::substr($plain, 0, 20) . "...";
+            } else {
+                $tabname = $plain;
+            }
         }
         $id = $action;
         $tab = new tabobject($id, $taburl, $tabname);

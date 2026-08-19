@@ -17,7 +17,7 @@
         fitScale: 1,
         effectiveScale: 1,
         scale: 1,
-        activeTool: 'cursor',
+        activeTool: 'select',
         pages: {},
         activeAnnotation: null,
         deleteButton: null,
@@ -71,6 +71,8 @@
         pageRenderSignatures: {},
         renderSchedulePending: false,
         pageRenderTasks: {},
+        textLayerRenderTasks: {},
+        textLayerFetchGen: {},
         pdfPageProxyByNum: {},
         lastPdfRenderEnvSig: null,
         lastPdfRenderEnvTs: 0,
@@ -106,6 +108,8 @@
             s = '<rect x="2" y="2" width="20" height="20" fill="none" stroke="' + f + '" stroke-width="2.5"/>';
         } else if (tool === 'drawing') {
             s = '<path fill="' + f + '" d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34c-.39-.39-1.02-.39-1.41 0L9 12.25 11.75 15l8.96-8.96c.39-.39.39-1.02 0-1.41z"/>';
+        } else if (tool === 'textbox') {
+            s = '<path fill="' + f + '" d="M4 3h8v2H9v14h3v2H4v-2h3V5H4z"/><path fill="' + f + '" d="M13.2 20h-1.9l3.3-12h2.2l3.3 12h-1.9l-.7-2.8h-3.6zm2.4-9.6-1.3 5h2.6l-1.3-5z"/>';
         } else if (tool === 'highlight') {
             s = '<svg viewBox="-3.62 0 126.5 112.6" width="24" height="24"><g fill="' + f + '"><path d="m30.36,55.98 35.29,35.29c0.47,0.4 1.07,0.62 1.65,0.62 0.51,0 0.99-0.16 1.34-0.51l0.09-0.09 48.08-56.25c0.5-0.58 0.77-1.29 0.77-1.97 0-0.56-0.2-1.12-0.63-1.55L91.34,5.91c-0.42-0.42-0.95-0.61-1.5-0.61-0.71,0-1.44,0.28-2.07,0.79L30.15,52.8l-0.11,0.11c-0.32,0.32-0.46,0.77-0.46,1.25 0,0.58 0.21,1.17 0.59,1.64z"/><path d="M29.49,111.88c-2.2,0.91-6.3,0.75-7.12,0.61L2.36,110.28c-1.45-0.16-4.8-0.18-5.86-3.13-0.52-2.57 0.8-4.24 1.21-4.65 0,0 11.32-10.94 16.92-16.46 1.57-1.55 4.69-4.69 4.69-4.69l0.01,0.01 0.07-0.07c0.19-0.18 0.37-0.39 0.54-0.62 0.16-0.22 0.3-0.48 0.43-0.75 0.92-1.99 0.54-6.28 0.24-9.63h0.01c-0.09-0.96-0.16-1.85-0.2-2.46-0.56-4.42 2.26-6.98 5.09-9.51-0.77-1.25-1.18-2.69-1.19-4.11-0.02-1.84 0.62-3.67 1.99-5.04 0.13-0.13 0.3-0.28 0.52-0.46L84.44,1.99C86.02,0.7 87.94,0 89.84,0c1.9,0 3.77,0.68 5.25,2.16l25.61,25.61c1.48,1.48 2.18,3.37 2.18,5.29 0,1.91-0.71,3.85-2.05,5.41L72.75,94.73c-0.15,0.18-0.28,0.32-0.36,0.4-1.4,1.4-3.26,2.06-5.13,2.04-1.41-0.01-2.84-0.41-4.07-1.17-2.53,2.84-5.09,5.65-9.51,5.09-0.91-0.05-1.66-0.12-2.46-0.19v-0.01c-3.35-0.3-7.63-0.68-9.63,0.25-0.28,0.13-0.53,0.27-0.75,0.43-0.18,0.13-0.36,0.28-0.53,0.45-0.05,0.06-0.1,0.12-0.16,0.17l-4.69,4.69c-1.03,1.03-3.57,4.01-5.97,5z"/><path d="m20.24,87.9 1.07,1.07 11.2,11.2 1.07,1.07 5-5c1.73,0.23 3.37-1.6 5-3.43L29.08,62.2c-1.83,1.63-3.67,3.28-3.42,5.01l0.02,0.21c0.05,0.86 0.12,1.61 0.19,2.4h0.01c0.35,3.96 0.8,9.03-0.71,12.3-0.26,0.55-0.56,1.09-0.93,1.6-0.34,0.47-0.73,0.93-1.19,1.36l0.01,0.01z"/></g></svg>';
         } else if (tool === 'strikeout') {
@@ -116,8 +120,21 @@
         return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
     }
 
+    function cursorHotspotForTool(tool) {
+        if (tool === 'point') {
+            return '12 22';
+        }
+        if (tool === 'area' || tool === 'strikeout') {
+            return '0 0';
+        }
+        if (tool === 'textbox') {
+            return '5 12';
+        }
+        return '0 22';
+    }
+
     function getCursorDataUrlForTool(tool, callback) {
-        if (tool === 'cursor') { callback(null); return; }
+        if (tool === 'select' || tool === 'cursor') { callback(null); return; }
         if (cursorCache[tool]) { callback(cursorCache[tool]); return; }
         var dataUrl = buildSvgCursor(tool);
         if (dataUrl) { cursorCache[tool] = dataUrl; }
@@ -288,12 +305,12 @@
             return;
         }
         var z = getRequestedZoom() > 1.0001;
-        v.classList.toggle('tl-pdf-pan-ready', z && state.activeTool === 'cursor');
+        v.classList.toggle('tl-pdf-pan-ready', z && state.activeTool === 'select');
         if (v.classList.contains('tl-pdf-panning')) {
             v.style.cursor = 'grabbing';
             return;
         }
-        if (state.activeTool === 'cursor') {
+        if (state.activeTool === 'select') {
             v.style.cursor = 'default';
         }
     }
@@ -1134,7 +1151,24 @@
     }
 
     function setTool(tool) {
-        state.activeTool = tool || 'cursor';
+        var prevTool = state.activeTool || 'select';
+        var nextTool = tool || 'select';
+
+        if (prevTool === 'select' && nextTool !== 'select' && state._viewerPanSession) {
+            endViewerPanSession();
+        }
+        if (prevTool === 'cursor' && nextTool !== 'cursor') {
+            try {
+                var textSelection = window.getSelection && window.getSelection();
+                if (textSelection) {
+                    textSelection.removeAllRanges();
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        state.activeTool = nextTool;
         var buttons = document.querySelectorAll('#toolbarContent [data-tooltype]');
         buttons.forEach(function (button) {
             var active = button.getAttribute('data-tooltype') === state.activeTool;
@@ -1147,24 +1181,39 @@
         var viewer = viewerEl();
         if (viewer) {
             viewer.classList.toggle('tl-tool-textbox', state.activeTool === 'textbox');
+            viewer.classList.toggle('tl-tool-cursor', state.activeTool === 'cursor');
             (function () {
                 var t = state.activeTool;
-                if (t === 'cursor') { viewer.style.cursor = 'default'; return; }
+                if (t === 'select') {
+                    viewer.style.cursor = 'default';
+                    return;
+                }
+                if (t === 'cursor') {
+                    viewer.style.cursor = 'text';
+                    return;
+                }
                 if (cursorCache[t]) {
-                    var h = (t === 'point') ? '12 22' : (t === 'area' ? '0 0' : (t === 'strikeout' ? '7 7' : '0 22'));
-                    viewer.style.cursor = 'url(' + cursorCache[t] + ') ' + h + ', auto';
+                    var hCached = cursorHotspotForTool(t);
+                    var fbCached = (t === 'textbox') ? 'text' : 'auto';
+                    viewer.style.cursor = 'url(' + cursorCache[t] + ') ' + hCached + ', ' + fbCached;
                     return;
                 }
                 getCursorDataUrlForTool(t, function (dataUrl) {
                     var v = viewerEl();
-                    if (!v) return;
-                    if (!dataUrl) { v.style.cursor = 'default'; return; }
-                    var h = (t === 'point') ? '12 22' : ((t === 'area' || t === 'strikeout') ? '0 0' : '0 22');
-                    v.style.cursor = 'url(' + dataUrl + ') ' + h + ', auto';
+                    if (!v) {
+                        return;
+                    }
+                    if (!dataUrl) {
+                        v.style.cursor = (t === 'textbox' || t === 'cursor') ? 'text' : 'default';
+                        return;
+                    }
+                    var h = cursorHotspotForTool(t);
+                    var fb = (t === 'textbox') ? 'text' : 'auto';
+                    v.style.cursor = 'url(' + dataUrl + ') ' + h + ', ' + fb;
                 });
             })();
         }
-        if (state.activeTool !== 'cursor') {
+        if (state.activeTool !== 'select') {
             clearSelection();
         }
         syncViewerPanCursorClass();
@@ -1866,7 +1915,8 @@
         shell.className = 'tl-express-toolbar';
         shell.innerHTML = [
             '<div class="tl-group tl-tools">',
-            '<button type="button" data-proxy-tool="cursor" title="Cursor"><i class="fa fa-mouse-pointer"></i></button>',
+            '<button type="button" data-proxy-tool="select" title="Select"><i class="fa fa-mouse-pointer"></i></button>',
+            '<button type="button" data-proxy-tool="cursor" title="Cursor"><svg viewBox="0 0 24 24" aria-hidden="true" style="width:1.12em;height:1.12em"><path fill="currentColor" d="M4 3h8v2H9v14h3v2H4v-2h3V5H4z"/></svg></button>',
             '<button type="button" data-proxy-tool="point" title="Point"><i class="fa fa-map-pin"></i></button>',
             '<button type="button" data-proxy-tool="area" title="Area"><i class="fa fa-square-o"></i></button>',
             '<button type="button" data-proxy-tool="drawing" title=""><i class="fa fa-paint-brush"></i></button>',
@@ -2124,15 +2174,32 @@
             pageContainer.appendChild(overlayHost);
         }
 
+        var textLayer = pageContainer.querySelector('.textLayer');
+        if (!textLayer) {
+            textLayer = document.createElement('div');
+            textLayer.className = 'textLayer';
+            pageContainer.appendChild(textLayer);
+        }
+        if (overlayHost.nextSibling !== textLayer) {
+            pageContainer.appendChild(textLayer);
+        }
+
         canvas.style.width = cssWidth + 'px';
         canvas.style.height = cssHeight + 'px';
         overlayHost.style.width = cssWidth + 'px';
         overlayHost.style.height = cssHeight + 'px';
+        textLayer.style.left = '0px';
+        textLayer.style.top = '0px';
+        textLayer.style.right = 'auto';
+        textLayer.style.bottom = 'auto';
+        textLayer.style.width = cssWidth + 'px';
+        textLayer.style.height = cssHeight + 'px';
 
         return {
             container: pageContainer,
             canvas: canvas,
             overlayHost: overlayHost,
+            textLayer: textLayer,
             viewport: {
                 width: cssWidth,
                 height: cssHeight
@@ -2240,6 +2307,15 @@
                 } catch (__e0) {}
                 delete state.pageRenderTasks[__rtKey];
             }
+            var __textTask = state.textLayerRenderTasks && state.textLayerRenderTasks[__rtKey];
+            if (__textTask && typeof __textTask.cancel === 'function') {
+                try {
+                    __textTask.cancel();
+                } catch (__eText0) {}
+                delete state.textLayerRenderTasks[__rtKey];
+            }
+            state.textLayerFetchGen = state.textLayerFetchGen || {};
+            state.textLayerFetchGen[__rtKey] = (state.textLayerFetchGen[__rtKey] || 0) + 1;
             try {
                 if (pageState.stage && typeof pageState.stage.destroy === 'function') {
                     pageState.stage.destroy();
@@ -2265,6 +2341,10 @@
                 var host = shell.querySelector('.tl-konva-host');
                 if (host) {
                     host.innerHTML = '';
+                }
+                var textLayer = shell.querySelector('.textLayer');
+                if (textLayer) {
+                    textLayer.innerHTML = '';
                 }
                 var canvas = shell.querySelector('canvas.tl-pdf-canvas');
                 if (canvas) {
@@ -2733,7 +2813,25 @@
                 }
             });
         } catch (e2) {}
+
+        try {
+            var tm = state.textLayerRenderTasks || {};
+            Object.keys(tm).forEach(function (pk) {
+                var tt = tm[pk];
+                if (tt && typeof tt.cancel === 'function') {
+                    try {
+                        tt.cancel();
+                    } catch (e3) {}
+                }
+            });
+        } catch (e4) {}
+
         state.pageRenderTasks = {};
+        state.textLayerRenderTasks = {};
+        state.textLayerFetchGen = state.textLayerFetchGen || {};
+        Object.keys(state.textLayerFetchGen).forEach(function (pk) {
+            state.textLayerFetchGen[pk] = (state.textLayerFetchGen[pk] || 0) + 1;
+        });
     }
 
     function renderPage(pageNumber) {
@@ -2774,11 +2872,11 @@
             var pixelRatio = rasterPixelRatioForPage(pageNumber);
             var canvas = shell.canvas;
             var overlayHost = shell.overlayHost;
+            var textLayerEl = shell.textLayer;
             var cssWidth = Math.max(1, Math.round(Number(cssViewport.width || 0)));
             var cssHeight = Math.max(1, Math.round(Number(cssViewport.height || 0)));
             var vw = Math.max(1, Number(cssViewport.width || 1));
             var vh = Math.max(1, Number(cssViewport.height || 1));
-            /* HiDPI: backing store = ceil(CSSpx * DPR) so the bitmap is never upscaled soft; map PDF space with cssViewport + transform (PDF.js HiDPI pattern). */
             var canvasBackingW = Math.max(1, Math.ceil(cssWidth * pixelRatio));
             var canvasBackingH = Math.max(1, Math.ceil(cssHeight * pixelRatio));
             canvas.width = canvasBackingW;
@@ -2788,6 +2886,77 @@
             canvas.style.height = cssHeight + 'px';
             overlayHost.style.width = cssWidth + 'px';
             overlayHost.style.height = cssHeight + 'px';
+            if (textLayerEl) {
+                textLayerEl.style.left = '0px';
+                textLayerEl.style.top = '0px';
+                textLayerEl.style.right = 'auto';
+                textLayerEl.style.bottom = 'auto';
+                textLayerEl.style.width = cssWidth + 'px';
+                textLayerEl.style.height = cssHeight + 'px';
+            }
+
+            var prevTextTask = state.textLayerRenderTasks && state.textLayerRenderTasks[key];
+            if (prevTextTask && typeof prevTextTask.cancel === 'function') {
+                try {
+                    prevTextTask.cancel();
+                } catch (__eTextCancel0) {}
+            }
+            if (state.textLayerRenderTasks) {
+                delete state.textLayerRenderTasks[key];
+            }
+            state.textLayerFetchGen = state.textLayerFetchGen || {};
+            var textLayerFetchGen = (state.textLayerFetchGen[key] || 0) + 1;
+            state.textLayerFetchGen[key] = textLayerFetchGen;
+            if (textLayerEl) {
+                textLayerEl.innerHTML = '';
+            }
+
+            if (textLayerEl && window.pdfjsLib && typeof pdfjsLib.renderTextLayer === 'function') {
+                (function (capturedTextLayer, capturedFetchGen, capturedLayoutRev, capturedPaintSig) {
+                    page.getTextContent().then(function (textContent) {
+                        if ((state.layoutRev || 0) !== capturedLayoutRev) {
+                            return;
+                        }
+                        if (computePageRenderSignature(pageNumber) !== capturedPaintSig) {
+                            return;
+                        }
+                        if (!state.textLayerFetchGen || state.textLayerFetchGen[key] !== capturedFetchGen) {
+                            return;
+                        }
+                        if (state.pdfPageProxyByNum && state.pdfPageProxyByNum[key] !== page) {
+                            return;
+                        }
+                        var currentShell = getPageElement(pageNumber);
+                        if (!currentShell || !capturedTextLayer || !capturedTextLayer.isConnected || capturedTextLayer.parentNode !== currentShell) {
+                            return;
+                        }
+
+                        var staleTask = state.textLayerRenderTasks && state.textLayerRenderTasks[key];
+                        if (staleTask && typeof staleTask.cancel === 'function') {
+                            try {
+                                staleTask.cancel();
+                            } catch (__eTextCancel1) {}
+                        }
+                        if (!state.textLayerFetchGen || state.textLayerFetchGen[key] !== capturedFetchGen) {
+                            return;
+                        }
+
+                        capturedTextLayer.innerHTML = '';
+                        var renderTextTask = pdfjsLib.renderTextLayer({
+                            textContent: textContent,
+                            container: capturedTextLayer,
+                            viewport: cssViewport
+                        });
+                        state.textLayerRenderTasks[key] = renderTextTask;
+                        var renderTextPromise = (renderTextTask && renderTextTask.promise) ? renderTextTask.promise : Promise.resolve();
+                        renderTextPromise.catch(function () {}).finally(function () {
+                            if (state.textLayerRenderTasks && state.textLayerRenderTasks[key] === renderTextTask) {
+                                delete state.textLayerRenderTasks[key];
+                            }
+                        });
+                    }).catch(function () {});
+                })(textLayerEl, textLayerFetchGen, layoutCapture, paintSig);
+            }
 
             var oldState = getPageState(pageNumber);
             if (oldState && oldState.stage && typeof oldState.stage.destroy === 'function') {
@@ -2964,7 +3133,7 @@
 
         stage.on('mousedown touchstart', function (event) {
             var tool = state.activeTool;
-            if (tool === 'cursor') {
+            if (tool === 'select') {
                 var canPan = getRequestedZoom() > 1.0001;
                 var tgt = event && event.target;
                 if (canPan && tgt === stage && event.evt) {
@@ -3018,6 +3187,9 @@
                 }
                 return;
             }
+            if (tool === 'cursor') {
+                return;
+            }
             var pointer = stage.getPointerPosition();
             if (!pointer) {
                 return;
@@ -3056,7 +3228,7 @@
                     state._pointClickSelect = true;
                     selectAnnotation(pageNumber, hitGroup);
                     if (hitGroup.getAttr && hitGroup.getAttr('annotationData') && hitGroup.getAttr('annotationData').type !== 'point') {
-                        setTool('cursor');
+                        setTool('select');
                     }
                     openCommentsPanelForGroup(pageNumber, hitGroup);
                     return;
@@ -3110,7 +3282,7 @@
                     state._pointClickSelect = true;
                     selectAnnotation(pageNumber, hitGroupDraw);
                     if (hitGroupDraw.getAttr && hitGroupDraw.getAttr('annotationData') && hitGroupDraw.getAttr('annotationData').type !== 'drawing') {
-                        setTool('cursor');
+                        setTool('select');
                     }
                     openCommentsPanelForGroup(pageNumber, hitGroupDraw);
                     return;
@@ -3188,7 +3360,7 @@
                         selectAnnotation(pageNumber, hitGroupRect);
                         var adTypeRect = hitGroupRect.getAttr && hitGroupRect.getAttr('annotationData') && hitGroupRect.getAttr('annotationData').type;
                         if (adTypeRect !== tool) {
-                            setTool('cursor');
+                            setTool('select');
                         }
                         openCommentsPanelForGroup(pageNumber, hitGroupRect);
                         return;
@@ -3390,7 +3562,7 @@
                     }
                     if (data && data.type !== 'textbox') {
                         selectAnnotation(pageNumber, hitGroup);
-                        setTool('cursor');
+                        setTool('select');
                         openCommentsPanelForGroup(pageNumber, hitGroup);
                         return;
                     }
@@ -3425,6 +3597,9 @@
         stage.on('dblclick dbltap', function (event) {
             var domTarget = event && event.evt && event.evt.target;
             if (domTarget && domTarget.closest && (domTarget.closest('.tl-inline-text-editor') || domTarget.closest('.tl-save-textbox'))) {
+                return;
+            }
+            if (tool === 'cursor') {
                 return;
             }
             var pointer = stage.getPointerPosition();
@@ -6789,7 +6964,7 @@
         setTimeout(ensureRestoreControls, 1200);
         setTimeout(ensureToggleAllComments, 400);
         initKeyboardShortcuts();
-        setTool('cursor');
+        setTool('select');
         bindVisibilityRecovery();
 
 

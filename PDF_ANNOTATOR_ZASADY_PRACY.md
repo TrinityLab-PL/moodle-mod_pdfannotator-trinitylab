@@ -69,7 +69,7 @@
 ## 4. Backup
 
 - Po każdej udanej zmianie: pełny backup wszystkich plików, które mogły być zmieniane (w katalogu pluginu oraz np. `~/trinity_lab_backup/` / `/root/trinity_lab_backup/`) z nazwą wersji (np. `vXX_opis`). Użytkownikowi można podać gotowy bash do wykonania kopii.
-- W skrypcie `edit-with-maintenance.sh` ścieżka backupu do restore jest stała (np. `v85_Rectangle_clickable_area_3px_centered`).
+- W skrypcie `edit-with-maintenance.sh` restore `shared/index.js` korzysta z wskaźnika `mod/pdfannotator/_backups/CURRENT_RESTORE.txt` (nazwa katalogu vNNN) oraz auto-wykrywania najwyższego `vNNN` w `/root/trinity_lab_backup/` lub `_backups/` — **nie trzeba** ręcznie edytować stałej ścieżki w skrypcie.
 - **Nie wolno przywracać starszych backupów bez zgody użytkownika** — przywracać wyłącznie najnowszy backup lub wersję wskazaną przez użytkownika.
 - Po backupie: diff do weryfikacji.
 
@@ -98,19 +98,28 @@
 
 ### 4.2 Tryb "backup bez angażowania użytkownika" (MUST)
 
-- Gdy użytkownik prosi o `pełny backup` / `full snapshot`:
-  1. Asystent wykonuje całość **samodzielnie** (bez pytań, bez prośby o kliknięcie `Run`).
-  2. Asystent używa **jednego krótkiego wywołania** `edit-with-maintenance.sh --cmd '...'` do utworzenia snapshotu w `_backups`.
+- Gdy użytkownik prosi o `pełny backup` / `full snapshot` (np. „Pełny backup moja_nazwa” — **tylko to** podaje użytkownik):
+  1. Asystent wykonuje całość **samodzielnie** (bez pytań o wersję, `CURRENT_RESTORE`, `BACKUP_INDEX` ani prośby o kliknięcie `Run`).
+  2. Asystent używa **jednego krótkiego wywołania** `edit-with-maintenance.sh --cmd '...'` do utworzenia snapshotu w `_backups` **oraz** zapisu wskaźnika restore: `echo "$BNAME" > mod/pdfannotator/_backups/CURRENT_RESTORE.txt` (§4.3 — w tym samym `--cmd` co rsync).
   3. Po wywołaniu zawsze wymusza `php admin/cli/maintenance.php --disable` w tym samym bashu.
-  4. Asystent **nie kopiuje sam** do `/root/trinity_lab_backup`; podaje tylko gotowy bash dla użytkownika.
+  4. Asystent **nie kopiuje sam** do `/root/trinity_lab_backup`; podaje tylko gotowy bash dla użytkownika (§4.0, `sudo cp -a` z `_backups`).
+  5. Asystent **nie edytuje** ręcznie `edit-with-maintenance.sh` / `BACKUP_INDEX` — restore jest dynamiczny (§4.3).
 - Jeśli narzędzie terminalowe zwróci `failed to spawn: Aborted`:
   - asystent wykonuje automatyczny retry (do skutku w bieżącym promptcie, bez angażowania użytkownika),
   - retry ma używać prostszego, krótszego wariantu komendy (bez rozbudowanej logiki w jednej linii),
   - użytkownik dostaje dopiero wynik końcowy.
 - Odpowiedź po backupie ma być krótka i zawsze zawierać:
   - nazwę snapshotu `vXX_opis_TIMESTAMP`,
+  - potwierdzenie, że zapisano `CURRENT_RESTORE.txt` (bez prośby do użytkownika o ten krok),
   - informację o statusie maintenance,
   - gotowy bash do kopiowania snapshotu do `/root/trinity_lab_backup`.
+
+### 4.3 Restore pointer (MUST)
+
+- Po snapshot w `_backups` (w tym samym `--cmd` co rsync/tar) zapisać wskaźnik, np.: echo "vNNN_opis_TIMESTAMP" > mod/pdfannotator/_backups/CURRENT_RESTORE.txt
+- To jest MUST. Bash `sudo cp -a` z §4.0 **nie** zapisuje wskaźnika. Podwójne zabezpieczenie (bez sudo, obok bashu §4.0): echo "vNNN_opis_TIMESTAMP" > /var/www/html/moodle/mod/pdfannotator/_backups/CURRENT_RESTORE.txt
+- Kopia na root: bash §4.0 albo opcjonalnie sudo ./mod/pdfannotator/scripts/copy_backup_to_root.sh vNNN_... (ten skrypt ustawia wskaźnik i przywraca właściciela pliku jak katalog `_backups`).
+- Przy `--restore` skrypt wypisze użyty vNNN; ręczna edycja BACKUP_INDEX w skrypcie nie jest wymagana.
 
 ---
 
