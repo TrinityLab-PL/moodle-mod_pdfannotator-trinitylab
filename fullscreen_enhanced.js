@@ -18,11 +18,9 @@
     function tryAutoTheater() {
         var container = document.querySelector('#pdfannotator_index');
         if (!container || container.getAttribute('data-default-fullscreen') !== '1') return;
-        var btn = document.querySelector('[data-proxy-action="fullscreen"]');
-        if (window.tlToggleTheaterMode && btn) {
+        if (window.tlToggleTheaterMode) {
             window.tlToggleTheaterMode();
             document.body.classList.remove('pdfannotator-default-fullscreen');
-            btn.innerHTML = '<svg viewBox="0 0 2300 2300" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke="rgb(59,62,62)" stroke-width="200" stroke-linecap="round" stroke-linejoin="round" d="M 825,826 L 825,126 M 125,826 L 825,826 M 825,1474 L 825,2174 M 125,1474 L 825,1474 M 1476,826 L 1476,126 M 2176,826 L 1476,826 M 1476,1474 L 1476,2174 M 2176,1474 L 1476,1474"/></svg>';
         } else {
             setTimeout(tryAutoTheater, 200);
         }
@@ -59,6 +57,10 @@
     }
 
     function patchNewUIFullscreenButton() {
+        var rootV4 = document.querySelector('#pdfannotator_index.tl-layout-v4');
+        if (rootV4) {
+            return rootV4;
+        }
         var btn = document.querySelector('[data-proxy-action="fullscreen"]');
         if (!btn || btn.getAttribute('data-tl-patched') === '1') return btn;
         debugFs('TL Fullscreen: patching New UI fullscreen button');
@@ -97,6 +99,10 @@
     }
 
     function initFullscreen() {
+        var rootV4 = document.querySelector('#pdfannotator_index.tl-layout-v4');
+        if (rootV4) {
+            return;
+        }
         var isFullscreen = false;
         var pdfContainer = document.querySelector('#viewer');
         

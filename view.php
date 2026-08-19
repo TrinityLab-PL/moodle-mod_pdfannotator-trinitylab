@@ -99,7 +99,7 @@ if ($pdfannotatorpageaction === 'view' && isset($pdfannotator->defaultfullscreen
 // Trinity Lab: Load enhanced fullscreen module only on PDF viewer tab (not overview/report/statistics shells).
 // Hotfix: disable missing AMD module that can break page bootstrap.
 if ($pdfannotatorpageaction === 'view') {
-    $PAGE->requires->js('/mod/pdfannotator/fullscreen_enhanced.js?ver=00056', false);
+    $PAGE->requires->js('/mod/pdfannotator/fullscreen_enhanced.js?ver=00057', false);
 }
 $PAGE->requires->css('/mod/pdfannotator/lib/shoelace/dist/themes/light.css');
 

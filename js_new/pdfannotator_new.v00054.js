@@ -109,7 +109,8 @@
         } else if (tool === 'drawing') {
             s = '<path fill="' + f + '" d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34c-.39-.39-1.02-.39-1.41 0L9 12.25 11.75 15l8.96-8.96c.39-.39.39-1.02 0-1.41z"/>';
         } else if (tool === 'textbox') {
-            s = '<path fill="' + f + '" d="M4 3h8v2H9v14h3v2H4v-2h3V5H4z"/><path fill="' + f + '" d="M13.2 20h-1.9l3.3-12h2.2l3.3 12h-1.9l-.7-2.8h-3.6zm2.4-9.6-1.3 5h2.6l-1.3-5z"/>';
+            var tbSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 24" width="32" height="24"><path fill="' + f + '" d="M1 0H9V3H6V21H9V24H1V21H4V3H1Z"/><path fill="' + f + '" d="M13 24H16L17 21H22L23 24H26L20.7 4H18.3L13 24ZM17.5 17.5L19.5 10L21.5 17.5H17.5Z"/></svg>';
+            return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(tbSvg)));
         } else if (tool === 'highlight') {
             s = '<svg viewBox="-3.62 0 126.5 112.6" width="24" height="24"><g fill="' + f + '"><path d="m30.36,55.98 35.29,35.29c0.47,0.4 1.07,0.62 1.65,0.62 0.51,0 0.99-0.16 1.34-0.51l0.09-0.09 48.08-56.25c0.5-0.58 0.77-1.29 0.77-1.97 0-0.56-0.2-1.12-0.63-1.55L91.34,5.91c-0.42-0.42-0.95-0.61-1.5-0.61-0.71,0-1.44,0.28-2.07,0.79L30.15,52.8l-0.11,0.11c-0.32,0.32-0.46,0.77-0.46,1.25 0,0.58 0.21,1.17 0.59,1.64z"/><path d="M29.49,111.88c-2.2,0.91-6.3,0.75-7.12,0.61L2.36,110.28c-1.45-0.16-4.8-0.18-5.86-3.13-0.52-2.57 0.8-4.24 1.21-4.65 0,0 11.32-10.94 16.92-16.46 1.57-1.55 4.69-4.69 4.69-4.69l0.01,0.01 0.07-0.07c0.19-0.18 0.37-0.39 0.54-0.62 0.16-0.22 0.3-0.48 0.43-0.75 0.92-1.99 0.54-6.28 0.24-9.63h0.01c-0.09-0.96-0.16-1.85-0.2-2.46-0.56-4.42 2.26-6.98 5.09-9.51-0.77-1.25-1.18-2.69-1.19-4.11-0.02-1.84 0.62-3.67 1.99-5.04 0.13-0.13 0.3-0.28 0.52-0.46L84.44,1.99C86.02,0.7 87.94,0 89.84,0c1.9,0 3.77,0.68 5.25,2.16l25.61,25.61c1.48,1.48 2.18,3.37 2.18,5.29 0,1.91-0.71,3.85-2.05,5.41L72.75,94.73c-0.15,0.18-0.28,0.32-0.36,0.4-1.4,1.4-3.26,2.06-5.13,2.04-1.41-0.01-2.84-0.41-4.07-1.17-2.53,2.84-5.09,5.65-9.51,5.09-0.91-0.05-1.66-0.12-2.46-0.19v-0.01c-3.35-0.3-7.63-0.68-9.63,0.25-0.28,0.13-0.53,0.27-0.75,0.43-0.18,0.13-0.36,0.28-0.53,0.45-0.05,0.06-0.1,0.12-0.16,0.17l-4.69,4.69c-1.03,1.03-3.57,4.01-5.97,5z"/><path d="m20.24,87.9 1.07,1.07 11.2,11.2 1.07,1.07 5-5c1.73,0.23 3.37-1.6 5-3.43L29.08,62.2c-1.83,1.63-3.67,3.28-3.42,5.01l0.02,0.21c0.05,0.86 0.12,1.61 0.19,2.4h0.01c0.35,3.96 0.8,9.03-0.71,12.3-0.26,0.55-0.56,1.09-0.93,1.6-0.34,0.47-0.73,0.93-1.19,1.36l0.01,0.01z"/></g></svg>';
         } else if (tool === 'strikeout') {
@@ -1523,6 +1524,27 @@
         hiddenElements: []
     };
 
+    function setExpressFullscreenButtonState(isTheatre) {
+        var btn = document.querySelector('[data-proxy-action="fullscreen"]');
+        if (!btn) {
+            return;
+        }
+        if (isTheatre) {
+            btn.innerHTML = '<svg viewBox="0 0 2300 2300" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke="rgb(59,62,62)" stroke-width="200" stroke-linecap="round" stroke-linejoin="round" d="M 825,826 L 825,126 M 125,826 L 825,826 M 825,1474 L 825,2174 M 125,1474 L 825,1474 M 1476,826 L 1476,126 M 2176,826 L 1476,826 M 1476,1474 L 1476,2174 M 2176,1474 L 1476,1474"/></svg>';
+            if (btn.setAttribute) {
+                btn.setAttribute('data-tooltip-text', 'Exit full screen (ESC)');
+                btn.setAttribute('aria-label', 'Exit full screen (ESC)');
+            }
+        } else {
+            btn.innerHTML = '<svg viewBox="0 0 2300 2300" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke="rgb(59,62,62)" stroke-width="200" stroke-linecap="round" stroke-linejoin="round" d="M 125,126 L 125,826 M 825,126 L 125,126 M 125,2174 L 125,1474 M 825,2174 L 125,2174 M 2176,126 L 2176,826 M 1476,126 L 2176,126 M 2176,2174 L 2176,1474 M 1476,2174 L 2176,2174"/></svg>';
+            if (btn.setAttribute) {
+                btn.setAttribute('data-tooltip-text', 'Full screen (ESC to exit)');
+                btn.setAttribute('aria-label', 'Full screen (ESC to exit)');
+            }
+        }
+        btn.title = '';
+    }
+
     function rerenderAfterDisplayModeChange(delayMs, options) {
         if (!state.pdf) {
             return;
@@ -1711,8 +1733,7 @@
             document.body.classList.add('tl-pdf-fullscreen');
             setTimeout(logBug8Fullscreen, 1500);
             theaterState.enabled = true;
-            var btnOn = document.querySelector('[data-proxy-action="fullscreen"]');
-            if (btnOn) { btnOn.innerHTML = '<svg viewBox="0 0 2300 2300" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke="rgb(59,62,62)" stroke-width="200" stroke-linecap="round" stroke-linejoin="round" d="M 825,826 L 825,126 M 125,826 L 825,826 M 825,1474 L 825,2174 M 125,1474 L 825,1474 M 1476,826 L 1476,126 M 2176,826 L 1476,826 M 1476,1474 L 1476,2174 M 2176,1474 L 1476,1474"/></svg>'; }
+            setExpressFullscreenButtonState(true);
             purgeStaleHtmlAnnotationLayersForVisiblePages();
             softReflowPdfLayoutAfterTheaterToggle({ delayMs: 60, gentle: false, preToggleSaved: preToggleSaved });
             syncLayoutDocumentState();
@@ -1724,8 +1745,7 @@
         theaterState.hiddenElements = [];
         document.body.classList.remove('tl-pdf-fullscreen');
         theaterState.enabled = false;
-        var btnOff = document.querySelector('[data-proxy-action="fullscreen"]');
-        if (btnOff) { btnOff.innerHTML = '<svg viewBox="0 0 2300 2300" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><path stroke="rgb(59,62,62)" stroke-width="200" stroke-linecap="round" stroke-linejoin="round" d="M 125,126 L 125,826 M 825,126 L 125,126 M 125,2174 L 125,1474 M 825,2174 L 125,2174 M 2176,126 L 2176,826 M 1476,126 L 2176,126 M 2176,2174 L 2176,1474 M 1476,2174 L 2176,2174"/></svg>'; }
+        setExpressFullscreenButtonState(false);
         purgeStaleHtmlAnnotationLayersForVisiblePages();
         softReflowPdfLayoutAfterTheaterToggle({ delayMs: 72, gentle: true, preToggleSaved: preToggleSaved });
         requestAnimationFrame(function () {
@@ -1916,7 +1936,7 @@
         shell.innerHTML = [
             '<div class="tl-group tl-tools">',
             '<button type="button" data-proxy-tool="select" title="Select"><i class="fa fa-mouse-pointer"></i></button>',
-            '<button type="button" data-proxy-tool="cursor" title="Cursor"><svg viewBox="0 0 24 24" aria-hidden="true" style="width:1.12em;height:1.12em"><path fill="currentColor" d="M4 3h8v2H9v14h3v2H4v-2h3V5H4z"/></svg></button>',
+            '<button type="button" data-proxy-tool="cursor" title="Cursor"><svg viewBox="0 0 16 24" width="12" height="18" aria-hidden="true"><path fill="currentColor" d="M3 0H13V3H9.5V21H13V24H3V21H6.5V3H3Z"/></svg></button>',
             '<button type="button" data-proxy-tool="point" title="Point"><i class="fa fa-map-pin"></i></button>',
             '<button type="button" data-proxy-tool="area" title="Area"><i class="fa fa-square-o"></i></button>',
             '<button type="button" data-proxy-tool="drawing" title=""><i class="fa fa-paint-brush"></i></button>',
@@ -2023,6 +2043,8 @@
                 });
             });
         })();
+
+        setExpressFullscreenButtonState(theaterState.enabled || isTheaterModeActive());
 
         shell.querySelector('[data-proxy-action="zoom-in"]').addEventListener('click', function () {
             zoomBy(1);
@@ -3130,6 +3152,92 @@
         var shiftPolyPoints = [];
         var shiftPolyLine = null;
         var shiftPolyPreview = null;
+        var textboxNativeGesture = null;
+
+        function isTransformerHitTarget(pageState, targetNode) {
+            if (!pageState || !pageState.transformer) {
+                return false;
+            }
+            var node = targetNode || null;
+            while (node) {
+                if (node === pageState.transformer) {
+                    return true;
+                }
+                if (node.hasName && node.hasName('_anchor')) {
+                    return true;
+                }
+                node = node.getParent ? node.getParent() : null;
+            }
+            return false;
+        }
+
+        function isGroupSelectedOnTransformer(pageState, group) {
+            if (!pageState || !group || !state.activeAnnotation || state.activeAnnotation.pageNumber !== pageNumber || state.activeAnnotation.group !== group) {
+                return false;
+            }
+            if (!pageState.transformer || typeof pageState.transformer.nodes !== 'function') {
+                return false;
+            }
+            var nodes = pageState.transformer.nodes();
+            return Array.isArray(nodes) && nodes.length === 1 && nodes[0] === group;
+        }
+
+        function handleNativeDraggableHit(pageState, group, event, options) {
+            var opts = options || {};
+            if (!pageState || !group) {
+                return false;
+            }
+            if (!isGroupSelectedOnTransformer(pageState, group)) {
+                selectAnnotation(pageNumber, group);
+            }
+            openCommentsPanelForGroup(pageNumber, group);
+            if (!group.draggable || !group.draggable()) {
+                return true;
+            }
+            if (opts.preventStartDrag || isTransformerHitTarget(pageState, event && event.target)) {
+                state._pointClickSelect = true;
+                return true;
+            }
+            state._pointClickSelect = true;
+            try {
+                group.startDrag();
+            } catch (eStartDrag) {
+                // ignore
+            }
+            return true;
+        }
+
+        function findHitGroupByType(pageState, pointer, expectedType) {
+            if (!pageState || !pageState.annotationLayer || !pointer) {
+                return null;
+            }
+            var hit = pageState.annotationLayer.getIntersection(pointer);
+            var hitGroup = null;
+            if (hit) {
+                var node = hit;
+                while (node) {
+                    if (node.getAttr && node.getAttr('annotationData')) {
+                        hitGroup = node;
+                        break;
+                    }
+                    node = node.getParent ? node.getParent() : null;
+                }
+            }
+            if (!hitGroup) {
+                var children = pageState.annotationLayer.getChildren();
+                for (var i = children.length - 1; i >= 0; i--) {
+                    var gr = children[i];
+                    var ad = gr.getAttr && gr.getAttr('annotationData');
+                    if (!ad || (expectedType && ad.type !== expectedType)) { continue; }
+                    var rect = gr.getClientRect && gr.getClientRect();
+                    if (rect && pointer.x >= rect.x && pointer.x <= rect.x + rect.width && pointer.y >= rect.y && pointer.y <= rect.y + rect.height) {
+                        hitGroup = gr;
+                        break;
+                    }
+                }
+            }
+            return hitGroup;
+        }
 
         stage.on('mousedown touchstart', function (event) {
             var tool = state.activeTool;
@@ -3225,9 +3333,14 @@
                     }
                 }
                 if (hitGroup) {
+                    var adPoint = hitGroup.getAttr && hitGroup.getAttr('annotationData');
+                    if (adPoint && adPoint.type === 'point' && hitGroup.draggable && hitGroup.draggable()) {
+                        handleNativeDraggableHit(pageState, hitGroup, event);
+                        return;
+                    }
                     state._pointClickSelect = true;
                     selectAnnotation(pageNumber, hitGroup);
-                    if (hitGroup.getAttr && hitGroup.getAttr('annotationData') && hitGroup.getAttr('annotationData').type !== 'point') {
+                    if (adPoint && adPoint.type !== 'point') {
                         setTool('select');
                     }
                     openCommentsPanelForGroup(pageNumber, hitGroup);
@@ -3243,6 +3356,19 @@
             }
 
             if (tool === 'textbox') {
+                var pageStateTextbox = getPageState(pageNumber);
+                var hitGroupTextbox = findHitGroupByType(pageStateTextbox, pointer, 'textbox');
+                if (hitGroupTextbox && hitGroupTextbox.draggable && hitGroupTextbox.draggable()) {
+                    textboxNativeGesture = {
+                        active: true
+                    };
+                    handleNativeDraggableHit(pageStateTextbox, hitGroupTextbox, event, {
+                        preventStartDrag: isTransformerHitTarget(pageStateTextbox, event && event.target)
+                    });
+                    draftStart = null;
+                    return;
+                }
+                textboxNativeGesture = null;
                 draftStart = pointer;
                 return;
             }
@@ -3279,9 +3405,14 @@
                     }
                 }
                 if (hitGroupDraw) {
+                    var adDrawHit = hitGroupDraw.getAttr && hitGroupDraw.getAttr('annotationData');
+                    if (adDrawHit && adDrawHit.type === 'drawing' && hitGroupDraw.draggable && hitGroupDraw.draggable()) {
+                        handleNativeDraggableHit(pageStateDraw, hitGroupDraw, event);
+                        return;
+                    }
                     state._pointClickSelect = true;
                     selectAnnotation(pageNumber, hitGroupDraw);
-                    if (hitGroupDraw.getAttr && hitGroupDraw.getAttr('annotationData') && hitGroupDraw.getAttr('annotationData').type !== 'drawing') {
+                    if (adDrawHit && adDrawHit.type !== 'drawing') {
                         setTool('select');
                     }
                     openCommentsPanelForGroup(pageNumber, hitGroupDraw);
@@ -3356,9 +3487,13 @@
                         }
                     }
                     if (hitGroupRect) {
+                        var adTypeRect = hitGroupRect.getAttr && hitGroupRect.getAttr('annotationData') && hitGroupRect.getAttr('annotationData').type;
+                        if (adTypeRect === tool && hitGroupRect.draggable && hitGroupRect.draggable()) {
+                            handleNativeDraggableHit(pageStateRect, hitGroupRect, event);
+                            return;
+                        }
                         state._pointClickSelect = true;
                         selectAnnotation(pageNumber, hitGroupRect);
-                        var adTypeRect = hitGroupRect.getAttr && hitGroupRect.getAttr('annotationData') && hitGroupRect.getAttr('annotationData').type;
                         if (adTypeRect !== tool) {
                             setTool('select');
                         }
@@ -3445,6 +3580,11 @@
                         })]
                     });
                 }
+                return;
+            }
+
+            if (tool === 'textbox' && textboxNativeGesture && textboxNativeGesture.active) {
+                textboxNativeGesture = null;
                 return;
             }
 
@@ -5850,6 +5990,7 @@
             var pinUnitsH = 4222;
             var pathScale = (pinH / pinUnitsH) * scale;
             var pinGroup = new Konva.Group({
+                name: 'tl-point-pin',
                 x: annotation.x * scale,
                 y: annotation.y * scale,
                 offsetX: 0,
@@ -6655,12 +6796,15 @@
         var scale = state.scale;
 
         if (annotation.type === 'point') {
-            var point = group.findOne('Circle');
-            if (!point) {
+            var pinGroup = group.findOne('.tl-point-pin');
+            if (!pinGroup) {
                 return;
             }
-            annotation.x = point.x() / scale;
-            annotation.y = point.y() / scale;
+            annotation.x = (group.x() + pinGroup.x()) / scale;
+            annotation.y = (group.y() + pinGroup.y()) / scale;
+            pinGroup.x(annotation.x * scale);
+            pinGroup.y(annotation.y * scale);
+            group.position({ x: 0, y: 0 });
         } else if (annotation.type === 'area' || annotation.type === 'textbox') {
             var rect = group.findOne('Rect');
             if (!rect) {

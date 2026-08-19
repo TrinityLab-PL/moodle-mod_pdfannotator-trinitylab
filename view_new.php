@@ -97,7 +97,7 @@ if ($pdfannotatorpageaction === 'view' && isset($pdfannotator->defaultfullscreen
 
 // Trinity Lab: fullscreen helper only when viewing the PDF document.
 if ($pdfannotatorpageaction === 'view') {
-    $PAGE->requires->js('/mod/pdfannotator/fullscreen_enhanced.js?ver=00055', false);
+    $PAGE->requires->js('/mod/pdfannotator/fullscreen_enhanced.js?ver=00057', false);
 }
 $PAGE->requires->css('/mod/pdfannotator/lib/shoelace/dist/themes/light.css');
 

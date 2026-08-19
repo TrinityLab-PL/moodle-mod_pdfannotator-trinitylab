@@ -221,6 +221,16 @@
     opacity: 1;
 }
 
+.path-mod-pdfannotator #viewer.tl-tool-cursor .textLayer > span::selection {
+    background: rgba(57, 79, 150, 0.18);
+    color: inherit;
+}
+
+.path-mod-pdfannotator #viewer.tl-tool-cursor .textLayer > span::-moz-selection {
+    background: rgba(57, 79, 150, 0.18);
+    color: inherit;
+}
+
 .path-mod-pdfannotator #viewer.tl-tool-cursor .tl-konva-host {
     pointer-events: none;
 }
@@ -2784,6 +2794,11 @@ body:not(.tl-pdf-fullscreen) #viewer {
 #tl-express-toolbar button svg {
     color: #3b3e3e !important;
     fill: #3b3e3e !important;
+}
+
+.tl-express-toolbar button[data-proxy-tool="cursor"] svg {
+    width: 12px;
+    height: 18px;
 }
 
 /* TL_NORMAL_VIEW_LAYOUT_KK */
