@@ -2796,9 +2796,10 @@ body:not(.tl-pdf-fullscreen) #viewer {
     fill: #3b3e3e !important;
 }
 
-.tl-express-toolbar button[data-proxy-tool="cursor"] svg {
+#tl-express-toolbar button[data-proxy-tool="cursor"] svg {
     width: 12px;
     height: 18px;
+    shape-rendering: geometricPrecision;
 }
 
 /* TL_NORMAL_VIEW_LAYOUT_KK */

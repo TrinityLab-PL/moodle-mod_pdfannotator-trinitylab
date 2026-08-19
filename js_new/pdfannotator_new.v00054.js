@@ -98,6 +98,23 @@
     };
     var cursorCache = {};
     var CURSOR_SIZE = 24;
+    var IBEAM_PATH_TOOLBAR = 'M4 0 H12 V4 H8.5 V20 H12 V24 H4 V20 H7.5 V4 H4 Z';
+    var IBEAM_PATH_TEXTBOX_CURSOR = 'M1 0 H9 V3 H4.5 V21 H9 V24 H1 V21 H5.5 V3 H1 Z';
+    var FA_FONT_GLYPH_PATH = 'M254 52.8C249.3 40.3 237.3 32 224 32s-25.3 8.3-30 20.8L57.8 416H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32h-1.8l18-48H303.8l18 48H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H390.2L254 52.8zM279.8 304H168.2L224 155.1 279.8 304z';
+
+    function buildWriterIBeamPath(mode) {
+        return mode === 'toolbar' ? IBEAM_PATH_TOOLBAR : IBEAM_PATH_TEXTBOX_CURSOR;
+    }
+
+    function buildFaFontGlyphSvgFragment(fill, options) {
+        var opts = options || {};
+        var x = Number.isFinite(opts.x) ? opts.x : 12;
+        var y = Number.isFinite(opts.y) ? opts.y : 3;
+        var height = Number.isFinite(opts.height) ? opts.height : 16;
+        var scale = height / 512;
+        var scaleStr = String(Math.round(scale * 1000000) / 1000000);
+        return '<g transform="translate(' + x + ' ' + y + ') scale(' + scaleStr + ')"><path fill="' + fill + '" d="' + FA_FONT_GLYPH_PATH + '"/></g>';
+    }
 
     function buildSvgCursor(tool) {
         var f = '#4d5151';
@@ -109,7 +126,9 @@
         } else if (tool === 'drawing') {
             s = '<path fill="' + f + '" d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34c-.39-.39-1.02-.39-1.41 0L9 12.25 11.75 15l8.96-8.96c.39-.39.39-1.02 0-1.41z"/>';
         } else if (tool === 'textbox') {
-            var tbSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 24" width="32" height="24"><path fill="' + f + '" d="M1 0H9V3H6V21H9V24H1V21H4V3H1Z"/><path fill="' + f + '" d="M13 24H16L17 21H22L23 24H26L20.7 4H18.3L13 24ZM17.5 17.5L19.5 10L21.5 17.5H17.5Z"/></svg>';
+            var tbIBeamPath = buildWriterIBeamPath('textbox-cursor');
+            var tbFontGlyph = buildFaFontGlyphSvgFragment(f, { x: 12, y: 3, height: 16 });
+            var tbSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 24" width="32" height="24"><path fill="' + f + '" d="' + tbIBeamPath + '"/>' + tbFontGlyph + '</svg>';
             return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(tbSvg)));
         } else if (tool === 'highlight') {
             s = '<svg viewBox="-3.62 0 126.5 112.6" width="24" height="24"><g fill="' + f + '"><path d="m30.36,55.98 35.29,35.29c0.47,0.4 1.07,0.62 1.65,0.62 0.51,0 0.99-0.16 1.34-0.51l0.09-0.09 48.08-56.25c0.5-0.58 0.77-1.29 0.77-1.97 0-0.56-0.2-1.12-0.63-1.55L91.34,5.91c-0.42-0.42-0.95-0.61-1.5-0.61-0.71,0-1.44,0.28-2.07,0.79L30.15,52.8l-0.11,0.11c-0.32,0.32-0.46,0.77-0.46,1.25 0,0.58 0.21,1.17 0.59,1.64z"/><path d="M29.49,111.88c-2.2,0.91-6.3,0.75-7.12,0.61L2.36,110.28c-1.45-0.16-4.8-0.18-5.86-3.13-0.52-2.57 0.8-4.24 1.21-4.65 0,0 11.32-10.94 16.92-16.46 1.57-1.55 4.69-4.69 4.69-4.69l0.01,0.01 0.07-0.07c0.19-0.18 0.37-0.39 0.54-0.62 0.16-0.22 0.3-0.48 0.43-0.75 0.92-1.99 0.54-6.28 0.24-9.63h0.01c-0.09-0.96-0.16-1.85-0.2-2.46-0.56-4.42 2.26-6.98 5.09-9.51-0.77-1.25-1.18-2.69-1.19-4.11-0.02-1.84 0.62-3.67 1.99-5.04 0.13-0.13 0.3-0.28 0.52-0.46L84.44,1.99C86.02,0.7 87.94,0 89.84,0c1.9,0 3.77,0.68 5.25,2.16l25.61,25.61c1.48,1.48 2.18,3.37 2.18,5.29 0,1.91-0.71,3.85-2.05,5.41L72.75,94.73c-0.15,0.18-0.28,0.32-0.36,0.4-1.4,1.4-3.26,2.06-5.13,2.04-1.41-0.01-2.84-0.41-4.07-1.17-2.53,2.84-5.09,5.65-9.51,5.09-0.91-0.05-1.66-0.12-2.46-0.19v-0.01c-3.35-0.3-7.63-0.68-9.63,0.25-0.28,0.13-0.53,0.27-0.75,0.43-0.18,0.13-0.36,0.28-0.53,0.45-0.05,0.06-0.1,0.12-0.16,0.17l-4.69,4.69c-1.03,1.03-3.57,4.01-5.97,5z"/><path d="m20.24,87.9 1.07,1.07 11.2,11.2 1.07,1.07 5-5c1.73,0.23 3.37-1.6 5-3.43L29.08,62.2c-1.83,1.63-3.67,3.28-3.42,5.01l0.02,0.21c0.05,0.86 0.12,1.61 0.19,2.4h0.01c0.35,3.96 0.8,9.03-0.71,12.3-0.26,0.55-0.56,1.09-0.93,1.6-0.34,0.47-0.73,0.93-1.19,1.36l0.01,0.01z"/></g></svg>';
@@ -1933,10 +1952,11 @@
         var shell = document.createElement('div');
         shell.id = 'tl-express-toolbar';
         shell.className = 'tl-express-toolbar';
+        var cursorToolbarSvg = '<svg viewBox="0 0 16 24" width="12" height="18" aria-hidden="true"><path fill="currentColor" d="' + buildWriterIBeamPath('toolbar') + '"/></svg>';
         shell.innerHTML = [
             '<div class="tl-group tl-tools">',
             '<button type="button" data-proxy-tool="select" title="Select"><i class="fa fa-mouse-pointer"></i></button>',
-            '<button type="button" data-proxy-tool="cursor" title="Cursor"><svg viewBox="0 0 16 24" width="12" height="18" aria-hidden="true"><path fill="currentColor" d="M3 0H13V3H9.5V21H13V24H3V21H6.5V3H3Z"/></svg></button>',
+            '<button type="button" data-proxy-tool="cursor" title="Cursor">' + cursorToolbarSvg + '</button>',
             '<button type="button" data-proxy-tool="point" title="Point"><i class="fa fa-map-pin"></i></button>',
             '<button type="button" data-proxy-tool="area" title="Area"><i class="fa fa-square-o"></i></button>',
             '<button type="button" data-proxy-tool="drawing" title=""><i class="fa fa-paint-brush"></i></button>',
