@@ -148,7 +148,7 @@
             return '0 0';
         }
         if (tool === 'textbox') {
-            return '3 12';
+            return '4 12';
         }
         return '0 22';
     }
@@ -5799,11 +5799,11 @@
         var editorMinH = Math.ceil(_emptyBox.height * (state.scale || 1));
         var editorMinW = Math.max(60, Math.ceil(_emptyBox.width * (state.scale || 1)));
 
-        var paddingTop = 5;
+        var paddingTop = displayPad;
         var paddingLeft = displayPad;
         var baselineOffset = Math.round(displayFontSize * 0.78);
         editor.style.left = (pointerX - paddingLeft) + 'px';
-        editor.style.top = (pointerY - paddingTop - baselineOffset + 3) + 'px';
+        editor.style.top = (pointerY - paddingTop - baselineOffset) + 'px';
         editor.style.minWidth = '60px';
         editor.style.minHeight = editorMinH + 'px';
         editor.style.width = editorMinW + 'px';
@@ -5913,7 +5913,7 @@
             }
 
             var unscaledBoxX = (pointerX - paddingLeft) / state.scale;
-            var unscaledBoxY = (pointerY - paddingTop - baselineOffset + 3) / state.scale;
+            var unscaledBoxY = (pointerY - paddingTop - baselineOffset) / state.scale;
 
             var measure = {
                 type: 'textbox',
