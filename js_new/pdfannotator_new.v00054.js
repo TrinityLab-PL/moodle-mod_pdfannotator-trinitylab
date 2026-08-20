@@ -148,7 +148,7 @@
             return '0 0';
         }
         if (tool === 'textbox') {
-            return '5 12';
+            return '3 12';
         }
         return '0 22';
     }
@@ -5800,7 +5800,7 @@
         var editorMinW = Math.max(60, Math.ceil(_emptyBox.width * (state.scale || 1)));
 
         var paddingTop = 5;
-        var paddingLeft = 6;
+        var paddingLeft = displayPad;
         var baselineOffset = Math.round(displayFontSize * 0.78);
         editor.style.left = (pointerX - paddingLeft) + 'px';
         editor.style.top = (pointerY - paddingTop - baselineOffset + 3) + 'px';
