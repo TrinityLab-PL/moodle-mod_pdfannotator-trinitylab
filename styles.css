@@ -2797,7 +2797,7 @@ body:not(.tl-pdf-fullscreen) #viewer {
 }
 
 #tl-express-toolbar button[data-proxy-tool="cursor"] svg {
-    width: 12px;
+    width: 8px;
     height: 18px;
     shape-rendering: geometricPrecision;
 }

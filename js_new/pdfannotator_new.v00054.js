@@ -98,7 +98,7 @@
     };
     var cursorCache = {};
     var CURSOR_SIZE = 24;
-    var IBEAM_PATH_TOOLBAR = 'M2.667 5 L2.667 3 Q8 4.2 13.333 3 L13.333 5 L9.333 5 L9.333 19 L13.333 19 L13.333 21 Q8 19.8 2.667 21 L2.667 19 L6.667 19 L6.667 5 Z';
+    var IBEAM_PATH_TOOLBAR = 'M1 5 L1 3 Q5 4.2 9 3 L9 5 L6 5 L6 19 L9 19 L9 21 Q5 19.8 1 21 L1 19 L4 19 L4 5 Z';
     var IBEAM_PATH_TEXTBOX_CURSOR = 'M1 5 L1 3 Q5 4.2 9 3 L9 5 L6 5 L6 19 L9 19 L9 21 Q5 19.8 1 21 L1 19 L4 19 L4 5 Z';
     var FA_FONT_GLYPH_PATH = 'M254 52.8C249.3 40.3 237.3 32 224 32s-25.3 8.3-30 20.8L57.8 416H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32h-1.8l18-48H303.8l18 48H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H390.2L254 52.8zM279.8 304H168.2L224 155.1 279.8 304z';
 
@@ -1952,7 +1952,7 @@
         var shell = document.createElement('div');
         shell.id = 'tl-express-toolbar';
         shell.className = 'tl-express-toolbar';
-        var cursorToolbarSvg = '<svg viewBox="0 0 16 24" width="12" height="18" aria-hidden="true"><path fill="currentColor" d="' + buildWriterIBeamPath('toolbar') + '"/></svg>';
+        var cursorToolbarSvg = '<svg viewBox="1 3 8 18" width="8" height="18" aria-hidden="true"><path fill="currentColor" d="' + buildWriterIBeamPath('toolbar') + '"/></svg>';
         shell.innerHTML = [
             '<div class="tl-group tl-tools">',
             '<button type="button" data-proxy-tool="select" title="Select"><i class="fa fa-mouse-pointer"></i></button>',
