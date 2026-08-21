@@ -3380,7 +3380,9 @@
                 var hitGroupTextbox = findHitGroupByType(pageStateTextbox, pointer, 'textbox');
                 if (hitGroupTextbox && hitGroupTextbox.draggable && hitGroupTextbox.draggable()) {
                     textboxNativeGesture = {
-                        active: true
+                        startX: pointer.x,
+                        startY: pointer.y,
+                        active: false
                     };
                     handleNativeDraggableHit(pageStateTextbox, hitGroupTextbox, event, {
                         preventStartDrag: isTransformerHitTarget(pageStateTextbox, event && event.target)
@@ -3389,6 +3391,7 @@
                     return;
                 }
                 textboxNativeGesture = null;
+                state.ignoreNextTextboxClick = false;
                 draftStart = pointer;
                 return;
             }
@@ -3603,8 +3606,18 @@
                 return;
             }
 
-            if (tool === 'textbox' && textboxNativeGesture && textboxNativeGesture.active) {
+            if (tool === 'textbox' && textboxNativeGesture) {
+                if (pointer && !textboxNativeGesture.active &&
+                        typeof textboxNativeGesture.startX === 'number' &&
+                        typeof textboxNativeGesture.startY === 'number') {
+                    var gestureDx = pointer.x - textboxNativeGesture.startX;
+                    var gestureDy = pointer.y - textboxNativeGesture.startY;
+                    if ((gestureDx * gestureDx + gestureDy * gestureDy) >= 16) {
+                        textboxNativeGesture.active = true;
+                    }
+                }
                 textboxNativeGesture = null;
+                draftStart = null;
                 return;
             }
 
@@ -3664,6 +3677,10 @@
                 }
             } else {
                 state._lastTextboxClick = null;
+                if (tool === 'textbox') {
+                    textboxNativeGesture = null;
+                    draftStart = null;
+                }
             }
 
             if (tool === 'textbox' && pointer && !draftRect) {
@@ -3709,25 +3726,36 @@
                         }
                     }
                 }
+                var createGesture = !!draftStart && !hitGroup && !textboxNativeGesture;
                 if (state.ignoreNextTextboxClick) {
                     state.ignoreNextTextboxClick = false;
-                    return;
+                    if (!createGesture) {
+                        draftStart = null;
+                        textboxNativeGesture = null;
+                        return;
+                    }
                 }
                 if (hitGroup) {
                     var data = hitGroup.getAttr('annotationData');
                     if (data && data.type === 'textbox') {
                         selectAnnotation(pageNumber, hitGroup);
                         openCommentsPanelForGroup(pageNumber, hitGroup);
+                        draftStart = null;
+                        textboxNativeGesture = null;
                         return;
                     }
                     if (data && data.type !== 'textbox') {
                         selectAnnotation(pageNumber, hitGroup);
                         setTool('select');
                         openCommentsPanelForGroup(pageNumber, hitGroup);
+                        draftStart = null;
+                        textboxNativeGesture = null;
                         return;
                     }
                 }
                 showNewTextboxEditor(pageNumber, pointer.x, pointer.y);
+                draftStart = null;
+                textboxNativeGesture = null;
                 return;
             }
 

@@ -4,6 +4,13 @@ Data aktualizacji: 2026-02-18
 
 ## Priorytet - funkcjonalne (otwarte)
 
+- [ ] **Textbox - regresja: wymaga 2 klikniec do wstawienia**
+  - Obecnie: pierwsze klikniecie na PDF nic nie wstawia, dopiero drugie otwiera edytor.
+  - Oczekiwane: jedno klikniecie -> natychmiast nowy Textbox (jak przed v192).
+  - Podejrzenie: `ignoreNextTextboxClick` (mouseup) + blur w tym samym cyklu; `textboxNativeGesture` bez progu ruchu.
+  - Plan naprawy: `/home/piotrad/.cursor/plans/textbox_single-click_fix_e41a065b.plan.md`
+  - Powiazane backupy: v192 (native drag), v197 (caret OK - nie ruszac).
+
 - [ ] **Przesuwanie obiektu `drawing` (kreska)**
   - Obecnie: jest lepiej, ale ramka przesuwania bywa znacznie obok samego obiektu (kreski).
   - Oczekiwane: ramka i obiekt poruszaja sie spojnie, bez rozjazdu.
