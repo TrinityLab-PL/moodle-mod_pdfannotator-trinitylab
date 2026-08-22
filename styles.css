@@ -2035,6 +2035,29 @@ body.tl-pdf-fullscreen svg.annotationLayer {
     top: 0;
     z-index: 4;
 }
+#viewer .tl-pdf-link-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 5;
+    pointer-events: none;
+}
+
+#viewer .tl-pdf-link-layer section,
+#viewer .tl-pdf-link-layer a {
+    pointer-events: none;
+}
+
+#viewer.tl-tool-select .tl-pdf-link-layer .linkAnnotation > a {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+body.tl-pdf-fullscreen #viewer.tl-tool-select .tl-pdf-link-layer {
+    z-index: 1000000000 !important;
+}
+
+
 
 /* DevTools: tlInspectMode(1) w konsoli – potem "Select element" trafia w .tl-textbox-label itd. Wyłącz: tlInspectMode(0). */
 body.tl-inspect-mode #viewer,

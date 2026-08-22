@@ -113,6 +113,7 @@
   - potwierdzenie, że zapisano `CURRENT_RESTORE.txt` (bez prośby do użytkownika o ten krok),
   - informację o statusie maintenance,
   - gotowy bash do kopiowania snapshotu do `/root/trinity_lab_backup`.
+- **Potwierdzenie kopii na root (`OK`):** gdy użytkownik po backupie odpowie samym tekstem `OK` (potwierdzenie wykonania basha `sudo cp -a` na root), asystent **nie komentuje** tego — przyjmuje do wiadomości i odpowiada wyłącznie: `OK` (oszczędność tokenów; bez podsumowań, ofert pomocy ani powtórzeń statusu backupu).
 
 ### 4.3 Restore pointer (MUST)
 

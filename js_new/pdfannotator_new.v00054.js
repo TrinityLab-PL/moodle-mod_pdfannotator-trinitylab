@@ -73,6 +73,7 @@
         pageRenderTasks: {},
         textLayerRenderTasks: {},
         textLayerFetchGen: {},
+        linkLayerFetchGen: {},
         pdfPageProxyByNum: {},
         lastPdfRenderEnvSig: null,
         lastPdfRenderEnvTs: 0,
@@ -512,6 +513,335 @@
 
     function getPageState(pageNumber) {
         return state.pages[pageNumber] || null;
+    }
+
+    var PDF_LINK_ANNOTATION_TYPE = 2;
+
+    function resolveDestPageNumber(destArray) {
+        if (!destArray || !destArray.length || !state.pdf) {
+            return Promise.resolve(null);
+        }
+        var destRef = destArray[0];
+        if (typeof destRef === 'number' && isFinite(destRef)) {
+            return Promise.resolve(Math.max(1, Math.floor(destRef) + 1));
+        }
+        if (destRef && typeof destRef === 'object' && destRef.num != null) {
+            return Promise.resolve(Math.max(1, Number(destRef.num) + 1));
+        }
+        if (typeof state.pdf.getPageIndex === 'function') {
+            return state.pdf.getPageIndex(destRef).then(function (idx) {
+                return Math.max(1, Number(idx) + 1);
+            }).catch(function () {
+                return null;
+            });
+        }
+        return Promise.resolve(null);
+    }
+
+    function scrollToPdfDest(pageNumber1Based, destArray) {
+        var viewer = viewerEl();
+        var pageNo = Math.max(1, Math.floor(Number(pageNumber1Based) || 1));
+        if (state.pdf && state.pdf.numPages) {
+            pageNo = Math.min(state.pdf.numPages, pageNo);
+        }
+        var pageEl = getPageElement(pageNo);
+        if (!viewer || !pageEl) {
+            return Promise.resolve();
+        }
+        var pageTop = pageEl.offsetTop;
+        viewer.scrollTop = pageTop;
+        var currentPageInput = document.getElementById('currentPage');
+        if (currentPageInput) {
+            currentPageInput.value = String(pageNo);
+        }
+        updatePageCounter(pageNo);
+        if (!destArray || destArray.length < 2 || !state.pdf) {
+            return Promise.resolve();
+        }
+        var destName = destArray[1] && destArray[1].name ? String(destArray[1].name) : '';
+        if (destName !== 'XYZ' && destName !== 'FitH') {
+            return Promise.resolve();
+        }
+        return state.pdf.getPage(pageNo).then(function (pdfPage) {
+            if (!pdfPage) {
+                return;
+            }
+            var cssViewport = pdfPage.getViewport({ scale: state.scale });
+            var left = null;
+            var top = null;
+            if (destName === 'FitH') {
+                top = destArray.length > 2 ? destArray[2] : null;
+            } else {
+                left = destArray.length > 2 ? destArray[2] : null;
+                top = destArray.length > 3 ? destArray[3] : null;
+            }
+            if (top == null || !isFinite(Number(top))) {
+                return;
+            }
+            var x = left != null && isFinite(Number(left)) ? Number(left) : 0;
+            var pt = cssViewport.convertToViewportPoint(x, Number(top));
+            if (!pt || !isFinite(pt[1])) {
+                return;
+            }
+            var newScrollTop = pageTop + pt[1];
+            var maxScroll = Math.max(0, viewer.scrollHeight - viewer.clientHeight);
+            viewer.scrollTop = Math.max(0, Math.min(maxScroll, newScrollTop));
+        }).catch(function () {});
+    }
+
+    function createPdfLinkService() {
+        return {
+            getDestinationHash: function () {
+                return '#';
+            },
+            getAnchorUrl: function () {
+                return '#';
+            },
+            addLinkAttributes: function (link, url) {
+                if (!link || !url) {
+                    return;
+                }
+                try {
+                    var u = new URL(url, window.location.href);
+                    if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+                        return;
+                    }
+                    link.href = u.href;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                } catch (e0) {}
+            },
+            goToDestination: function (dest) {
+                if (!state.pdf) {
+                    return;
+                }
+                var svc = this;
+                if (typeof dest === 'string') {
+                    state.pdf.getDestination(dest).then(function (resolved) {
+                        if (resolved) {
+                            svc._navigateToDest(resolved);
+                        }
+                    }).catch(function () {});
+                    return;
+                }
+                svc._navigateToDest(dest);
+            },
+            _navigateToDest: function (destArray) {
+                resolveDestPageNumber(destArray).then(function (pageNum) {
+                    if (!pageNum) {
+                        return;
+                    }
+                    scrollToPdfDest(pageNum, destArray);
+                });
+            },
+            executeNamedAction: function (action) {
+                var cur = getCurrentPage();
+                var total = state.pdf ? state.pdf.numPages : 1;
+                if (action === 'NextPage') {
+                    scrollToPdfDest(Math.min(total, cur + 1), null);
+                } else if (action === 'PrevPage') {
+                    scrollToPdfDest(Math.max(1, cur - 1), null);
+                } else if (action === 'FirstPage') {
+                    scrollToPdfDest(1, null);
+                } else if (action === 'LastPage') {
+                    scrollToPdfDest(total, null);
+                }
+            },
+            eventBus: null
+        };
+    }
+
+    function filterLinkAnnotations(rawAnnotations) {
+        if (!Array.isArray(rawAnnotations)) {
+            return [];
+        }
+        var out = [];
+        rawAnnotations.forEach(function (ann) {
+            if (!ann || ann.annotationType !== PDF_LINK_ANNOTATION_TYPE) {
+                return;
+            }
+            if (ann.dest || ann.action) {
+                var copy = Object.assign({}, ann);
+                delete copy.url;
+                out.push(copy);
+                return;
+            }
+            if (ann.url) {
+                try {
+                    var u = new URL(ann.url, window.location.href);
+                    if (u.protocol === 'http:' || u.protocol === 'https:') {
+                        out.push(ann);
+                    }
+                } catch (e1) {}
+            }
+        });
+        return out;
+    }
+
+    function findKonvaHitAtClientPoint(pageNumber, nativeEvt) {
+        var pageState = getPageState(pageNumber);
+        if (!pageState || !pageState.stage || !nativeEvt) {
+            return null;
+        }
+        var stage = pageState.stage;
+        stage.setPointersPositions(nativeEvt);
+        var pointer = stage.getPointerPosition();
+        if (!pointer) {
+            return null;
+        }
+        var hit = pageState.overlayLayer && pageState.overlayLayer.getIntersection(pointer);
+        if (hit) {
+            var n = hit;
+            while (n) {
+                if (n.getClassName && n.getClassName() === 'Transformer') {
+                    return { kind: 'transformer', target: n };
+                }
+                if (n.name && String(n.name()).indexOf('_anchor') !== -1) {
+                    return { kind: 'transformer', target: n };
+                }
+                n = n.getParent ? n.getParent() : null;
+            }
+        }
+        hit = pageState.annotationLayer && pageState.annotationLayer.getIntersection(pointer);
+        if (hit) {
+            var node = hit;
+            while (node) {
+                if (node.getAttr && node.getAttr('annotationData')) {
+                    return { kind: 'group', group: node };
+                }
+                node = node.getParent ? node.getParent() : null;
+            }
+            var children = pageState.annotationLayer.getChildren();
+            for (var i = children.length - 1; i >= 0; i--) {
+                var gr = children[i];
+                var ad = gr.getAttr && gr.getAttr('annotationData');
+                if (!ad) {
+                    continue;
+                }
+                var rect = gr.getClientRect && gr.getClientRect();
+                if (rect && pointer.x >= rect.x && pointer.x <= rect.x + rect.width &&
+                        pointer.y >= rect.y && pointer.y <= rect.y + rect.height) {
+                    return { kind: 'group', group: gr };
+                }
+            }
+        }
+        return null;
+    }
+
+    function handlePdfLinkPointerInteraction(pageNumber, nativeEvt) {
+        if (state.activeTool !== 'select') {
+            return false;
+        }
+        var hit = findKonvaHitAtClientPoint(pageNumber, nativeEvt);
+        if (!hit) {
+            return false;
+        }
+        if (nativeEvt && typeof nativeEvt.preventDefault === 'function') {
+            nativeEvt.preventDefault();
+        }
+        if (nativeEvt && typeof nativeEvt.stopImmediatePropagation === 'function') {
+            nativeEvt.stopImmediatePropagation();
+        }
+        if (hit.kind === 'transformer' && hit.target) {
+            var pageStateT = getPageState(pageNumber);
+            if (pageStateT && pageStateT.transformer && pageStateT.stage) {
+                pageStateT.stage.setPointersPositions(nativeEvt);
+                if (typeof pageStateT.transformer._handleMouseDown === 'function') {
+                    pageStateT.transformer._handleMouseDown({ target: hit.target, evt: nativeEvt, type: 'mousedown' });
+                } else {
+                    hit.target.fire('mousedown', { evt: nativeEvt });
+                }
+            }
+            return true;
+        }
+        if (hit.kind === 'group' && hit.group) {
+            var grp = hit.group;
+            var pageStateG = getPageState(pageNumber);
+            var type = nativeEvt.type || '';
+            if (type === 'mousedown' || type === 'touchstart') {
+                if (pageStateG && pageStateG.stage) {
+                    pageStateG.stage.setPointersPositions(nativeEvt);
+                }
+                selectAnnotation(pageNumber, grp);
+                if (grp.draggable && grp.draggable()) {
+                    grp.startDrag();
+                }
+            } else if (type === 'click') {
+                selectAnnotation(pageNumber, grp);
+                openCommentsPanelForGroup(pageNumber, grp);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    function bindPdfLinkLayerListeners(pageNumber, linkLayerEl) {
+        if (!linkLayerEl) {
+            return;
+        }
+        var anchors = linkLayerEl.querySelectorAll('a');
+        anchors.forEach(function (anchor) {
+            ['pointermove', 'mousemove'].forEach(function (moveEv) {
+                anchor.addEventListener(moveEv, function (ev) {
+                    if (state.activeTool !== 'select') {
+                        return;
+                    }
+                    var hit = findKonvaHitAtClientPoint(pageNumber, ev);
+                    anchor.style.cursor = hit ? 'default' : 'pointer';
+                }, true);
+            });
+            ['mousedown', 'touchstart'].forEach(function (downEv) {
+                anchor.addEventListener(downEv, function (ev) {
+                    handlePdfLinkPointerInteraction(pageNumber, ev);
+                }, true);
+            });
+            anchor.addEventListener('click', function (ev) {
+                handlePdfLinkPointerInteraction(pageNumber, ev);
+            }, true);
+        });
+    }
+
+    function renderPdfLinkLayerForPage(pageNumber, page, cssViewport, linkLayerEl, layoutCapture, paintSig, fetchGen) {
+        if (!linkLayerEl || !window.pdfjsLib || !pdfjsLib.AnnotationLayer) {
+            return Promise.resolve();
+        }
+        var key = String(pageNumber);
+        linkLayerEl.innerHTML = '';
+        return page.getAnnotations().then(function (annotations) {
+            if ((state.layoutRev || 0) !== layoutCapture) {
+                return;
+            }
+            if (computePageRenderSignature(pageNumber) !== paintSig) {
+                return;
+            }
+            if (!state.linkLayerFetchGen || state.linkLayerFetchGen[key] !== fetchGen) {
+                return;
+            }
+            if (state.pdfPageProxyByNum && state.pdfPageProxyByNum[key] !== page) {
+                return;
+            }
+            var shell = getPageElement(pageNumber);
+            if (!shell || !linkLayerEl.isConnected || linkLayerEl.parentNode !== shell) {
+                return;
+            }
+            var filtered = filterLinkAnnotations(annotations);
+            linkLayerEl.innerHTML = '';
+            if (!filtered.length) {
+                return;
+            }
+            var viewport = cssViewport.clone({ dontFlip: true });
+            var linkService = createPdfLinkService();
+            pdfjsLib.AnnotationLayer.render({
+                div: linkLayerEl,
+                page: page,
+                viewport: viewport,
+                annotations: filtered,
+                linkService: linkService,
+                renderForms: false,
+                enableScripting: false
+            });
+            bindPdfLinkLayerListeners(pageNumber, linkLayerEl);
+        }).catch(function () {});
     }
 
 
@@ -1202,6 +1532,7 @@
         if (viewer) {
             viewer.classList.toggle('tl-tool-textbox', state.activeTool === 'textbox');
             viewer.classList.toggle('tl-tool-cursor', state.activeTool === 'cursor');
+            viewer.classList.toggle('tl-tool-select', state.activeTool === 'select');
             (function () {
                 var t = state.activeTool;
                 if (t === 'select') {
@@ -2216,20 +2547,33 @@
             pageContainer.appendChild(overlayHost);
         }
 
+        var linkLayer = pageContainer.querySelector('.tl-pdf-link-layer');
+        if (!linkLayer) {
+            linkLayer = document.createElement('div');
+            linkLayer.className = 'annotationLayer tl-pdf-link-layer';
+            pageContainer.appendChild(linkLayer);
+        }
+
         var textLayer = pageContainer.querySelector('.textLayer');
         if (!textLayer) {
             textLayer = document.createElement('div');
             textLayer.className = 'textLayer';
             pageContainer.appendChild(textLayer);
         }
-        if (overlayHost.nextSibling !== textLayer) {
-            pageContainer.appendChild(textLayer);
+        if (textLayer.parentNode === pageContainer && linkLayer.nextSibling !== textLayer) {
+            pageContainer.insertBefore(linkLayer, textLayer);
         }
 
         canvas.style.width = cssWidth + 'px';
         canvas.style.height = cssHeight + 'px';
         overlayHost.style.width = cssWidth + 'px';
         overlayHost.style.height = cssHeight + 'px';
+        linkLayer.style.left = '0px';
+        linkLayer.style.top = '0px';
+        linkLayer.style.right = 'auto';
+        linkLayer.style.bottom = 'auto';
+        linkLayer.style.width = cssWidth + 'px';
+        linkLayer.style.height = cssHeight + 'px';
         textLayer.style.left = '0px';
         textLayer.style.top = '0px';
         textLayer.style.right = 'auto';
@@ -2241,6 +2585,7 @@
             container: pageContainer,
             canvas: canvas,
             overlayHost: overlayHost,
+            linkLayer: linkLayer,
             textLayer: textLayer,
             viewport: {
                 width: cssWidth,
@@ -2358,6 +2703,8 @@
             }
             state.textLayerFetchGen = state.textLayerFetchGen || {};
             state.textLayerFetchGen[__rtKey] = (state.textLayerFetchGen[__rtKey] || 0) + 1;
+            state.linkLayerFetchGen = state.linkLayerFetchGen || {};
+            state.linkLayerFetchGen[__rtKey] = (state.linkLayerFetchGen[__rtKey] || 0) + 1;
             try {
                 if (pageState.stage && typeof pageState.stage.destroy === 'function') {
                     pageState.stage.destroy();
@@ -2387,6 +2734,10 @@
                 var textLayer = shell.querySelector('.textLayer');
                 if (textLayer) {
                     textLayer.innerHTML = '';
+                }
+                var linkLayerPrune = shell.querySelector('.tl-pdf-link-layer');
+                if (linkLayerPrune) {
+                    linkLayerPrune.innerHTML = '';
                 }
                 var canvas = shell.querySelector('canvas.tl-pdf-canvas');
                 if (canvas) {
@@ -2874,6 +3225,10 @@
         Object.keys(state.textLayerFetchGen).forEach(function (pk) {
             state.textLayerFetchGen[pk] = (state.textLayerFetchGen[pk] || 0) + 1;
         });
+        state.linkLayerFetchGen = state.linkLayerFetchGen || {};
+        Object.keys(state.linkLayerFetchGen).forEach(function (pk) {
+            state.linkLayerFetchGen[pk] = (state.linkLayerFetchGen[pk] || 0) + 1;
+        });
     }
 
     function renderPage(pageNumber) {
@@ -2915,6 +3270,7 @@
             var canvas = shell.canvas;
             var overlayHost = shell.overlayHost;
             var textLayerEl = shell.textLayer;
+            var linkLayerEl = shell.linkLayer;
             var cssWidth = Math.max(1, Math.round(Number(cssViewport.width || 0)));
             var cssHeight = Math.max(1, Math.round(Number(cssViewport.height || 0)));
             var vw = Math.max(1, Number(cssViewport.width || 1));
@@ -2936,6 +3292,14 @@
                 textLayerEl.style.width = cssWidth + 'px';
                 textLayerEl.style.height = cssHeight + 'px';
             }
+            if (linkLayerEl) {
+                linkLayerEl.style.left = '0px';
+                linkLayerEl.style.top = '0px';
+                linkLayerEl.style.right = 'auto';
+                linkLayerEl.style.bottom = 'auto';
+                linkLayerEl.style.width = cssWidth + 'px';
+                linkLayerEl.style.height = cssHeight + 'px';
+            }
 
             var prevTextTask = state.textLayerRenderTasks && state.textLayerRenderTasks[key];
             if (prevTextTask && typeof prevTextTask.cancel === 'function') {
@@ -2951,6 +3315,12 @@
             state.textLayerFetchGen[key] = textLayerFetchGen;
             if (textLayerEl) {
                 textLayerEl.innerHTML = '';
+            }
+            state.linkLayerFetchGen = state.linkLayerFetchGen || {};
+            var linkLayerFetchGen = (state.linkLayerFetchGen[key] || 0) + 1;
+            state.linkLayerFetchGen[key] = linkLayerFetchGen;
+            if (linkLayerEl) {
+                linkLayerEl.innerHTML = '';
             }
 
             if (textLayerEl && window.pdfjsLib && typeof pdfjsLib.renderTextLayer === 'function') {
@@ -3052,7 +3422,9 @@
                     state.metrics.fullRenderMs = elapsed;
                 }
 
-                return loadAndRenderAnnotations(pageNumber, { forceNetwork: false, forceDraw: true });
+                return loadAndRenderAnnotations(pageNumber, { forceNetwork: false, forceDraw: true }).then(function () {
+                    return renderPdfLinkLayerForPage(pageNumber, page, cssViewport, linkLayerEl, layoutCapture, paintSig, linkLayerFetchGen);
+                });
             }).finally(function () {
                 if (state.pageRenderTasks && state.pageRenderTasks[key] === pdfRenderTask) {
                     delete state.pageRenderTasks[key];
