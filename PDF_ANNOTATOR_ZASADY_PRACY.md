@@ -68,7 +68,7 @@
 
 ## 4. Backup
 
-- Po każdej udanej zmianie: pełny backup wszystkich plików, które mogły być zmieniane (w katalogu pluginu oraz np. `~/trinity_lab_backup/` / `/root/trinity_lab_backup/`) z nazwą wersji (np. `vXX_opis`). Użytkownikowi można podać gotowy bash do wykonania kopii.
+- Po każdej udanej zmianie: pełny backup wszystkich plików, które mogły być zmieniane. Najpierw lokalny snapshot w `mod/pdfannotator/_backups/`, potem gotowy bash dla roota kopiujący dokładnie ten snapshot do `/root/trinity_lab_backup/`.
 - W skrypcie `edit-with-maintenance.sh` restore `shared/index.js` korzysta z wskaźnika `mod/pdfannotator/_backups/CURRENT_RESTORE.txt` (nazwa katalogu vNNN) oraz auto-wykrywania najwyższego `vNNN` w `/root/trinity_lab_backup/` lub `_backups/` — **nie trzeba** ręcznie edytować stałej ścieżki w skrypcie.
 - **Nie wolno przywracać starszych backupów bez zgody użytkownika** — przywracać wyłącznie najnowszy backup lub wersję wskazaną przez użytkownika.
 - Po backupie: diff do weryfikacji.
@@ -76,7 +76,12 @@
 ### 4.0 Stała procedura backupu (MUST)
 
 - **Zawsze dwa poziomy backupu:**
-  1. **Lokalny snapshot w pluginie** – pełna kopia `mod/pdfannotator` w `mod/pdfannotator/_backups/vXX_opis_TIMESTAMP/…`, wykonana przez `edit-with-maintenance.sh --cmd '...'` (np. `tar` lub `cp` do `_backups`). Ten snapshot musi być widoczny z konta użytkownika (np. `piotrad`).
+  1. **Lokalny snapshot w pluginie** – pełna kopia `mod/pdfannotator` w `mod/pdfannotator/_backups/vXX_opis_TIMESTAMP/…`, wykonana przez `edit-with-maintenance.sh --cmd '...'` z `rsync` i walidacją anty-rekurencyjną (fail-closed):
+     - `rsync -a --delete --exclude "_backups/" mod/pdfannotator/ "mod/pdfannotator/_backups/$BNAME/mod/pdfannotator/"`
+     - walidacja po rsync: `test ! -d "mod/pdfannotator/_backups/$BNAME/mod/pdfannotator/_backups"`
+     - przy FAIL walidacji: `rm -rf "mod/pdfannotator/_backups/$BNAME"` i zakończenie błędem (`exit 1`)
+     - **dopiero po pozytywnej walidacji** zapis wskaźnika: `echo "$BNAME" > mod/pdfannotator/_backups/CURRENT_RESTORE.txt`
+     - Ten snapshot musi być widoczny z konta użytkownika (np. `piotrad`).
   2. **Kopia dla roota** – po utworzeniu lokalnego snapshotu asystent **zawsze** podaje gotowe polecenie bash, które z konta `root` kopiuje **właśnie ten** snapshot z `_backups` do `/root/trinity_lab_backup/`.
      - Asystent **nie wykonuje** tej kopii automatycznie — to ma wykonać użytkownik (po prostu skopiujesz/wkleisz podaną komendę).
 - **Asystent nigdy nie robi tylko backupu „na root‑cie” z pominięciem `_backups`.** Zawsze najpierw snapshot w `_backups`, potem bash do skopiowania go na konto `root`.
@@ -89,7 +94,7 @@
 
   ```bash
   sudo mkdir -p /root/trinity_lab_backup && \
-  sudo cp -a /home/piotrad/trinity_lab_backup/NAZWA_BACKUPU /root/trinity_lab_backup/ && \
+  sudo cp -a /var/www/html/moodle/mod/pdfannotator/_backups/NAZWA_BACKUPU /root/trinity_lab_backup/ && \
   sudo chown -R root:root /root/trinity_lab_backup/NAZWA_BACKUPU && \
   echo "OK"
   ```
@@ -100,10 +105,11 @@
 
 - Gdy użytkownik prosi o `pełny backup` / `full snapshot` (np. „Pełny backup moja_nazwa” — **tylko to** podaje użytkownik):
   1. Asystent wykonuje całość **samodzielnie** (bez pytań o wersję, `CURRENT_RESTORE`, `BACKUP_INDEX` ani prośby o kliknięcie `Run`).
-  2. Asystent używa **jednego krótkiego wywołania** `edit-with-maintenance.sh --cmd '...'` do utworzenia snapshotu w `_backups` **oraz** zapisu wskaźnika restore: `echo "$BNAME" > mod/pdfannotator/_backups/CURRENT_RESTORE.txt` (§4.3 — w tym samym `--cmd` co rsync).
+  2. Asystent używa **jednego krótkiego wywołania** `edit-with-maintenance.sh --cmd '...'` i wykonuje sekwencję fail-closed: `rsync --exclude "_backups/"` -> walidacja braku `_backups` w nowym snapshotcie -> zapis `CURRENT_RESTORE.txt` wyłącznie po pozytywnej walidacji.
   3. Po wywołaniu zawsze wymusza `php admin/cli/maintenance.php --disable` w tym samym bashu.
   4. Asystent **nie kopiuje sam** do `/root/trinity_lab_backup`; podaje tylko gotowy bash dla użytkownika (§4.0, `sudo cp -a` z `_backups`).
   5. Asystent **nie edytuje** ręcznie `edit-with-maintenance.sh` / `BACKUP_INDEX` — restore jest dynamiczny (§4.3).
+  6. Jeśli walidacja snapshotu FAIL: asystent usuwa nowy wadliwy snapshot, nie aktualizuje `CURRENT_RESTORE.txt`, raportuje błąd i kończy z maintenance OFF.
 - Jeśli narzędzie terminalowe zwróci `failed to spawn: Aborted`:
   - asystent wykonuje automatyczny retry (do skutku w bieżącym promptcie, bez angażowania użytkownika),
   - retry ma używać prostszego, krótszego wariantu komendy (bez rozbudowanej logiki w jednej linii),
@@ -117,8 +123,9 @@
 
 ### 4.3 Restore pointer (MUST)
 
-- Po snapshot w `_backups` (w tym samym `--cmd` co rsync/tar) zapisać wskaźnik, np.: echo "vNNN_opis_TIMESTAMP" > mod/pdfannotator/_backups/CURRENT_RESTORE.txt
-- To jest MUST. Bash `sudo cp -a` z §4.0 **nie** zapisuje wskaźnika. Podwójne zabezpieczenie (bez sudo, obok bashu §4.0): echo "vNNN_opis_TIMESTAMP" > /var/www/html/moodle/mod/pdfannotator/_backups/CURRENT_RESTORE.txt
+- Po snapshot w `_backups` zapisać wskaźnik **wyłącznie po pozytywnej walidacji anty-rekurencyjnej** (w tym samym `--cmd` co `rsync`): `echo "vNNN_opis_TIMESTAMP" > mod/pdfannotator/_backups/CURRENT_RESTORE.txt`
+- To jest MUST. Bash `sudo cp -a` z §4.0 **nie** zapisuje wskaźnika.
+- FAIL walidacji = brak aktualizacji wskaźnika + usunięcie nowego wadliwego snapshotu.
 - Kopia na root: bash §4.0 albo opcjonalnie sudo ./mod/pdfannotator/scripts/copy_backup_to_root.sh vNNN_... (ten skrypt ustawia wskaźnik i przywraca właściciela pliku jak katalog `_backups`).
 - Przy `--restore` skrypt wypisze użyty vNNN; ręczna edycja BACKUP_INDEX w skrypcie nie jest wymagana.
 
