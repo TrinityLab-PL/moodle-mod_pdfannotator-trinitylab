@@ -75,6 +75,9 @@
         textLayerFetchGen: {},
         linkLayerFetchGen: {},
         pdfPageProxyByNum: {},
+        _pdfLinkPendingDrag: null,
+        _pdfLinkGesture: null,
+        _pdfLinkSkipClickUntil: 0,
         lastPdfRenderEnvSig: null,
         lastPdfRenderEnvTs: 0,
         metrics: {
@@ -678,6 +681,27 @@
         return out;
     }
 
+    function pointToSegmentDistanceSquared(px, py, x1, y1, x2, y2) {
+        var dx = x2 - x1;
+        var dy = y2 - y1;
+        if (dx === 0 && dy === 0) {
+            var ddx = px - x1;
+            var ddy = py - y1;
+            return ddx * ddx + ddy * ddy;
+        }
+        var t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy);
+        if (t < 0) {
+            t = 0;
+        } else if (t > 1) {
+            t = 1;
+        }
+        var projX = x1 + t * dx;
+        var projY = y1 + t * dy;
+        var distX = px - projX;
+        var distY = py - projY;
+        return distX * distX + distY * distY;
+    }
+
     function findKonvaHitAtClientPoint(pageNumber, nativeEvt) {
         var pageState = getPageState(pageNumber);
         if (!pageState || !pageState.stage || !nativeEvt) {
@@ -711,6 +735,8 @@
                 }
                 node = node.getParent ? node.getParent() : null;
             }
+        }
+        if (pageState.annotationLayer && pageState.annotationLayer.getChildren) {
             var children = pageState.annotationLayer.getChildren();
             for (var i = children.length - 1; i >= 0; i--) {
                 var gr = children[i];
@@ -719,17 +745,482 @@
                     continue;
                 }
                 var rect = gr.getClientRect && gr.getClientRect();
-                if (rect && pointer.x >= rect.x && pointer.x <= rect.x + rect.width &&
-                        pointer.y >= rect.y && pointer.y <= rect.y + rect.height) {
+                var pad = 0;
+                if (ad.type === 'highlight' || ad.type === 'strikeout' || ad.type === 'text') {
+                    pad = 2;
+                } else if (ad.type === 'drawing') {
+                    pad = 2;
+                }
+                if (rect && pointer.x >= rect.x - pad && pointer.x <= rect.x + rect.width + pad &&
+                        pointer.y >= rect.y - pad && pointer.y <= rect.y + rect.height + pad) {
                     return { kind: 'group', group: gr };
+                }
+                if (ad.type === 'drawing' && gr.getChildren) {
+                    var lineChildren = gr.getChildren();
+                    for (var li = 0; li < lineChildren.length; li++) {
+                        var lineNode = lineChildren[li];
+                        if (!lineNode || !lineNode.getClassName || lineNode.getClassName() !== 'Line' || !lineNode.points) {
+                            continue;
+                        }
+                        var pts = lineNode.points();
+                        if (!Array.isArray(pts) || pts.length < 4) {
+                            continue;
+                        }
+                        var hs = Number(lineNode.hitStrokeWidth && lineNode.hitStrokeWidth());
+                        var sw = Number(lineNode.strokeWidth && lineNode.strokeWidth());
+                        var tolerance = 4;
+                        if (Number.isFinite(hs) && hs > 0) {
+                            tolerance = Math.max(4, hs / 2);
+                        } else if (Number.isFinite(sw) && sw > 0) {
+                            tolerance = Math.max(4, sw);
+                        }
+                        var tolSq = tolerance * tolerance;
+                        for (var pj = 2; pj < pts.length; pj += 2) {
+                            var x1 = Number(pts[pj - 2]);
+                            var y1 = Number(pts[pj - 1]);
+                            var x2 = Number(pts[pj]);
+                            var y2 = Number(pts[pj + 1]);
+                            if (!Number.isFinite(x1) || !Number.isFinite(y1) || !Number.isFinite(x2) || !Number.isFinite(y2)) {
+                                continue;
+                            }
+                            if (pointToSegmentDistanceSquared(pointer.x, pointer.y, x1, y1, x2, y2) <= tolSq) {
+                                return { kind: 'group', group: gr };
+                            }
+                        }
+                    }
                 }
             }
         }
         return null;
     }
 
+    function getPrimaryClientPointFromEvent(nativeEvt) {
+        if (!nativeEvt) {
+            return null;
+        }
+        var type = String(nativeEvt.type || '');
+        if (type.indexOf('touch') === 0) {
+            var touch = null;
+            if (nativeEvt.touches && nativeEvt.touches[0]) {
+                touch = nativeEvt.touches[0];
+            } else if (nativeEvt.changedTouches && nativeEvt.changedTouches[0]) {
+                touch = nativeEvt.changedTouches[0];
+            }
+            if (!touch) {
+                return null;
+            }
+            return {
+                family: 'touch',
+                clientX: Number(touch.clientX),
+                clientY: Number(touch.clientY),
+                pointerId: Number.isFinite(Number(touch.identifier)) ? Number(touch.identifier) : null
+            };
+        }
+        var clientX = Number(nativeEvt.clientX);
+        var clientY = Number(nativeEvt.clientY);
+        if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+            return null;
+        }
+        return {
+            family: 'mouse',
+            clientX: clientX,
+            clientY: clientY,
+            pointerId: Number.isFinite(Number(nativeEvt.pointerId)) ? Number(nativeEvt.pointerId) : null
+        };
+    }
+
+    function isPrimarySelectDownEvent(nativeEvt) {
+        if (!nativeEvt) {
+            return false;
+        }
+        var type = String(nativeEvt.type || '');
+        if (type.indexOf('touch') === 0) {
+            return !!(nativeEvt.touches && nativeEvt.touches.length === 1);
+        }
+        if (typeof nativeEvt.button === 'number' && nativeEvt.button !== 0) {
+            return false;
+        }
+        return true;
+    }
+
+    function isMatchingPendingPointer(pending, nativeEvt) {
+        if (!pending || !nativeEvt) {
+            return false;
+        }
+        if (pending.pointerId == null) {
+            return true;
+        }
+        if (Number.isFinite(Number(nativeEvt.pointerId))) {
+            return Number(nativeEvt.pointerId) === pending.pointerId;
+        }
+        var touchList = nativeEvt.changedTouches || nativeEvt.touches || null;
+        if (!touchList || !touchList.length) {
+            return true;
+        }
+        for (var i = 0; i < touchList.length; i++) {
+            var t = touchList[i];
+            if (Number.isFinite(Number(t.identifier)) && Number(t.identifier) === pending.pointerId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function createSyntheticPointerEvent(point, fallbackTarget) {
+        if (!point) {
+            return null;
+        }
+        var scrollX = (window.pageXOffset || 0);
+        var scrollY = (window.pageYOffset || 0);
+        return {
+            clientX: point.clientX,
+            clientY: point.clientY,
+            pageX: point.clientX + scrollX,
+            pageY: point.clientY + scrollY,
+            target: fallbackTarget || null
+        };
+    }
+
+    function detachPdfLinkGestureListeners(gesture) {
+        if (!gesture || !gesture.ownDocListeners) {
+            return;
+        }
+        if (gesture.family === 'touch') {
+            document.removeEventListener('touchmove', onPdfLinkGestureTouchMove, true);
+            document.removeEventListener('touchend', onPdfLinkGestureTouchEnd, true);
+            document.removeEventListener('touchcancel', onPdfLinkGestureTouchEnd, true);
+        } else {
+            document.removeEventListener('mousemove', onPdfLinkGestureMouseMove, true);
+            document.removeEventListener('mouseup', onPdfLinkGestureMouseUp, true);
+        }
+        gesture.ownDocListeners = false;
+    }
+
+    function cleanupPdfLinkGesture() {
+        var gesture = state._pdfLinkGesture;
+        if (!gesture) {
+            return;
+        }
+        detachPdfLinkGestureListeners(gesture);
+        if (gesture.timeoutId) {
+            clearTimeout(gesture.timeoutId);
+            gesture.timeoutId = null;
+        }
+        state._pdfLinkGesture = null;
+    }
+
+    function attachPdfLinkGestureListeners(gesture) {
+        if (!gesture || gesture.ownDocListeners) {
+            return;
+        }
+        if (gesture.family === 'touch') {
+            document.addEventListener('touchmove', onPdfLinkGestureTouchMove, { passive: false, capture: true });
+            document.addEventListener('touchend', onPdfLinkGestureTouchEnd, true);
+            document.addEventListener('touchcancel', onPdfLinkGestureTouchEnd, true);
+        } else {
+            document.addEventListener('mousemove', onPdfLinkGestureMouseMove, true);
+            document.addEventListener('mouseup', onPdfLinkGestureMouseUp, true);
+        }
+        gesture.ownDocListeners = true;
+    }
+
+    function startPdfLinkGesture(pageNumber, hit, nativeEvt) {
+        var point = getPrimaryClientPointFromEvent(nativeEvt);
+        if (!point || !hit) {
+            return null;
+        }
+        cleanupPdfLinkGesture();
+        var kind = hit.kind === 'transformer' ? 'transformer' : 'group';
+        var gesture = {
+            pageNumber: pageNumber,
+            kind: kind,
+            group: kind === 'group' ? hit.group : null,
+            hadHitOnDown: true,
+            wasDragging: false,
+            suppressClick: false,
+            pointerId: point.pointerId,
+            family: point.family,
+            startClientX: point.clientX,
+            startClientY: point.clientY,
+            timeoutId: null,
+            ownDocListeners: false
+        };
+        state._pdfLinkGesture = gesture;
+        return gesture;
+    }
+
+    function handlePdfLinkGestureMove(nativeEvt) {
+        var gesture = state._pdfLinkGesture;
+        if (!gesture || !gesture.ownDocListeners || state.activeTool !== 'select') {
+            return;
+        }
+        if (!isMatchingPendingPointer({ pointerId: gesture.pointerId }, nativeEvt)) {
+            return;
+        }
+        var point = getPrimaryClientPointFromEvent(nativeEvt);
+        if (!point) {
+            return;
+        }
+        var dx = point.clientX - gesture.startClientX;
+        var dy = point.clientY - gesture.startClientY;
+        if ((dx * dx + dy * dy) >= 16) {
+            gesture.wasDragging = true;
+        }
+    }
+
+    function onPdfLinkGestureMouseMove(nativeEvt) {
+        handlePdfLinkGestureMove(nativeEvt);
+    }
+
+    function onPdfLinkGestureTouchMove(nativeEvt) {
+        if (nativeEvt && typeof nativeEvt.preventDefault === 'function') {
+            nativeEvt.preventDefault();
+        }
+        handlePdfLinkGestureMove(nativeEvt);
+    }
+
+    function reconstructPdfLinkSelectTap(pageNumber, hitKind, group, options) {
+        var opts = options || {};
+        clearSelection();
+        state._pdfLinkSkipClickUntil = Date.now() + 900;
+        if (hitKind === 'group' && opts.selectGroup !== false && group) {
+            selectAnnotation(pageNumber, group);
+            openCommentsPanelForGroup(pageNumber, group);
+            state._pdfLinkSkipClickUntil = Date.now() + 900;
+        }
+    }
+
+    function finalizePdfLinkGestureOnUp(nativeEvt, pendingSnapshot) {
+        var gesture = state._pdfLinkGesture;
+        if (!gesture) {
+            return;
+        }
+        if (nativeEvt && !isMatchingPendingPointer({ pointerId: gesture.pointerId }, nativeEvt)) {
+            return;
+        }
+        if (pendingSnapshot && pendingSnapshot.wasDragging) {
+            gesture.wasDragging = true;
+        }
+        if (gesture.wasDragging || gesture.kind === 'transformer') {
+            gesture.suppressClick = true;
+        }
+        if (!pendingSnapshot && gesture.family === 'touch' && gesture.kind === 'transformer' && !gesture.wasDragging) {
+            reconstructPdfLinkSelectTap(gesture.pageNumber, 'transformer', null, { selectGroup: false });
+        }
+        detachPdfLinkGestureListeners(gesture);
+        if (gesture.timeoutId) {
+            clearTimeout(gesture.timeoutId);
+            gesture.timeoutId = null;
+        }
+        gesture.timeoutId = setTimeout(function () {
+            cleanupPdfLinkGesture();
+        }, 900);
+    }
+
+    function handlePdfLinkGestureEnd(nativeEvt) {
+        finalizePdfLinkGestureOnUp(nativeEvt, null);
+    }
+
+    function onPdfLinkGestureMouseUp(nativeEvt) {
+        handlePdfLinkGestureEnd(nativeEvt);
+    }
+
+    function onPdfLinkGestureTouchEnd(nativeEvt) {
+        handlePdfLinkGestureEnd(nativeEvt);
+    }
+
+    function handlePdfLinkGestureAnchorClick(pageNumber, nativeEvt) {
+        var gesture = state._pdfLinkGesture;
+        if (!gesture || Number(gesture.pageNumber) !== Number(pageNumber)) {
+            return false;
+        }
+        if (!gesture.hadHitOnDown && !gesture.suppressClick) {
+            return false;
+        }
+        if (nativeEvt && typeof nativeEvt.preventDefault === 'function') {
+            nativeEvt.preventDefault();
+        }
+        if (nativeEvt && typeof nativeEvt.stopImmediatePropagation === 'function') {
+            nativeEvt.stopImmediatePropagation();
+        }
+        var now = Date.now();
+        var skipUntil = Number(state._pdfLinkSkipClickUntil || 0);
+        if (skipUntil > now) {
+            cleanupPdfLinkGesture();
+            return true;
+        }
+        if (!gesture.wasDragging) {
+            if (gesture.kind === 'transformer') {
+                reconstructPdfLinkSelectTap(pageNumber, 'transformer', null, { selectGroup: false });
+            } else if (gesture.kind === 'group' && gesture.group) {
+                reconstructPdfLinkSelectTap(pageNumber, 'group', gesture.group);
+            }
+        }
+        cleanupPdfLinkGesture();
+        return true;
+    }
+
+    function detachPdfLinkPendingDragListeners(family) {
+        if (family === 'touch') {
+            document.removeEventListener('touchmove', onPdfLinkPendingTouchMove, true);
+            document.removeEventListener('touchend', onPdfLinkPendingTouchEnd, true);
+            document.removeEventListener('touchcancel', onPdfLinkPendingTouchEnd, true);
+            return;
+        }
+        document.removeEventListener('mousemove', onPdfLinkPendingMouseMove, true);
+        document.removeEventListener('mouseup', onPdfLinkPendingMouseUp, true);
+    }
+
+    function cleanupPdfLinkPendingDrag(forceStopDrag) {
+        var pending = state._pdfLinkPendingDrag;
+        if (!pending) {
+            return;
+        }
+        detachPdfLinkPendingDragListeners(pending.family);
+        if (forceStopDrag && pending.group && pending.group.isDragging && pending.group.isDragging()) {
+            try {
+                pending.group.stopDrag();
+            } catch (eStopDrag) {
+                // ignore
+            }
+        }
+        state._pdfLinkPendingDrag = null;
+    }
+
+    function onPdfLinkPendingMouseMove(nativeEvt) {
+        handlePdfLinkPendingDragMove(nativeEvt);
+    }
+
+    function onPdfLinkPendingMouseUp(nativeEvt) {
+        handlePdfLinkPendingDragEnd(nativeEvt);
+    }
+
+    function onPdfLinkPendingTouchMove(nativeEvt) {
+        handlePdfLinkPendingDragMove(nativeEvt);
+    }
+
+    function onPdfLinkPendingTouchEnd(nativeEvt) {
+        handlePdfLinkPendingDragEnd(nativeEvt);
+    }
+
+    function startPdfLinkPendingDrag(pageNumber, group, nativeEvt, options) {
+        var point = getPrimaryClientPointFromEvent(nativeEvt);
+        if (!point || !group) {
+            return false;
+        }
+        var opts = options || {};
+        var canDrag = (typeof opts.allowDrag === 'boolean') ? opts.allowDrag : !!(group.draggable && group.draggable());
+        cleanupPdfLinkPendingDrag(false);
+        state._pdfLinkPendingDrag = {
+            pageNumber: pageNumber,
+            group: group,
+            family: point.family,
+            pointerId: point.pointerId,
+            startClientX: point.clientX,
+            startClientY: point.clientY,
+            canDrag: canDrag,
+            dragStarted: false,
+            wasDragging: false
+        };
+        if (point.family === 'touch') {
+            document.addEventListener('touchmove', onPdfLinkPendingTouchMove, { passive: false, capture: true });
+            document.addEventListener('touchend', onPdfLinkPendingTouchEnd, true);
+            document.addEventListener('touchcancel', onPdfLinkPendingTouchEnd, true);
+            return true;
+        }
+        document.addEventListener('mousemove', onPdfLinkPendingMouseMove, true);
+        document.addEventListener('mouseup', onPdfLinkPendingMouseUp, true);
+        return true;
+    }
+
+    function handlePdfLinkPendingDragMove(nativeEvt) {
+        var pending = state._pdfLinkPendingDrag;
+        if (!pending || state.activeTool !== 'select') {
+            return;
+        }
+        if (!isMatchingPendingPointer(pending, nativeEvt)) {
+            return;
+        }
+        var point = getPrimaryClientPointFromEvent(nativeEvt);
+        if (!point) {
+            return;
+        }
+        if (nativeEvt && typeof nativeEvt.preventDefault === 'function') {
+            nativeEvt.preventDefault();
+        }
+        if (!pending.canDrag) {
+            return;
+        }
+        var dx = point.clientX - pending.startClientX;
+        var dy = point.clientY - pending.startClientY;
+        if ((dx * dx + dy * dy) < 16) {
+            return;
+        }
+        if (pending.group && pending.group.isDragging && pending.group.isDragging()) {
+            pending.dragStarted = true;
+            pending.wasDragging = true;
+            var gestureDragging = state._pdfLinkGesture;
+            if (gestureDragging && Number(gestureDragging.pageNumber) === Number(pending.pageNumber)) {
+                gestureDragging.wasDragging = true;
+            }
+            return;
+        }
+        var pageState = getPageState(pending.pageNumber);
+        if (!pageState || !pageState.stage || !pending.group) {
+            cleanupPdfLinkPendingDrag(true);
+            return;
+        }
+        var startEvt = createSyntheticPointerEvent({
+            clientX: pending.startClientX,
+            clientY: pending.startClientY
+        }, nativeEvt && nativeEvt.target ? nativeEvt.target : null);
+        try {
+            pageState.stage.setPointersPositions(startEvt || nativeEvt);
+        } catch (eSetStart) {
+            // ignore
+        }
+        try {
+            pending.group.startDrag();
+            pending.dragStarted = true;
+            pending.wasDragging = true;
+            var gestureNow = state._pdfLinkGesture;
+            if (gestureNow && Number(gestureNow.pageNumber) === Number(pending.pageNumber)) {
+                gestureNow.wasDragging = true;
+            }
+        } catch (eStart) {
+            // ignore
+        }
+        try {
+            pageState.stage.setPointersPositions(nativeEvt);
+        } catch (eSetMove) {
+            // ignore
+        }
+    }
+
+    function handlePdfLinkPendingDragEnd(nativeEvt) {
+        var pending = state._pdfLinkPendingDrag;
+        if (!pending) {
+            return;
+        }
+        if (!isMatchingPendingPointer(pending, nativeEvt)) {
+            return;
+        }
+        var shouldOpenTouchPanel = pending.family === 'touch' && !pending.wasDragging;
+        var pageNumber = pending.pageNumber;
+        var group = pending.group;
+        finalizePdfLinkGestureOnUp(nativeEvt, pending);
+        cleanupPdfLinkPendingDrag(true);
+        if (shouldOpenTouchPanel && group) {
+            reconstructPdfLinkSelectTap(pageNumber, 'group', group);
+        }
+    }
+
     function handlePdfLinkPointerInteraction(pageNumber, nativeEvt) {
-        if (state.activeTool !== 'select') {
+        if (state.activeTool !== 'select' || !nativeEvt) {
+            return false;
+        }
+        var type = String(nativeEvt.type || '');
+        if ((type === 'mousedown' || type === 'touchstart') && !isPrimarySelectDownEvent(nativeEvt)) {
             return false;
         }
         var hit = findKonvaHitAtClientPoint(pageNumber, nativeEvt);
@@ -742,33 +1233,47 @@
         if (nativeEvt && typeof nativeEvt.stopImmediatePropagation === 'function') {
             nativeEvt.stopImmediatePropagation();
         }
+        var gesture = null;
+        if (type === 'mousedown' || type === 'touchstart') {
+            gesture = startPdfLinkGesture(pageNumber, hit, nativeEvt);
+        }
         if (hit.kind === 'transformer' && hit.target) {
-            var pageStateT = getPageState(pageNumber);
-            if (pageStateT && pageStateT.transformer && pageStateT.stage) {
-                pageStateT.stage.setPointersPositions(nativeEvt);
-                if (typeof pageStateT.transformer._handleMouseDown === 'function') {
-                    pageStateT.transformer._handleMouseDown({ target: hit.target, evt: nativeEvt, type: 'mousedown' });
-                } else {
-                    hit.target.fire('mousedown', { evt: nativeEvt });
+            if (type === 'mousedown' || type === 'touchstart') {
+                var pageStateT = getPageState(pageNumber);
+                if (pageStateT && pageStateT.transformer && pageStateT.stage) {
+                    pageStateT.stage.setPointersPositions(nativeEvt);
+                    if (typeof pageStateT.transformer._handleMouseDown === 'function') {
+                        pageStateT.transformer._handleMouseDown({ target: hit.target, evt: nativeEvt, type: 'mousedown' });
+                    } else {
+                        hit.target.fire('mousedown', { evt: nativeEvt });
+                    }
+                }
+                if (gesture) {
+                    attachPdfLinkGestureListeners(gesture);
                 }
             }
             return true;
         }
         if (hit.kind === 'group' && hit.group) {
             var grp = hit.group;
-            var pageStateG = getPageState(pageNumber);
-            var type = nativeEvt.type || '';
+            var canDrag = !!(grp.draggable && grp.draggable());
+            selectAnnotation(pageNumber, grp);
             if (type === 'mousedown' || type === 'touchstart') {
-                if (pageStateG && pageStateG.stage) {
-                    pageStateG.stage.setPointersPositions(nativeEvt);
+                var startedPending = false;
+                if (type === 'touchstart' || canDrag) {
+                    startedPending = startPdfLinkPendingDrag(pageNumber, grp, nativeEvt, { allowDrag: canDrag });
                 }
-                selectAnnotation(pageNumber, grp);
-                if (grp.draggable && grp.draggable()) {
-                    grp.startDrag();
+                if (gesture && !startedPending) {
+                    attachPdfLinkGestureListeners(gesture);
                 }
-            } else if (type === 'click') {
-                selectAnnotation(pageNumber, grp);
+                return true;
+            }
+            if (type === 'click') {
+                if ((state._pdfLinkSkipClickUntil || 0) > Date.now()) {
+                    return true;
+                }
                 openCommentsPanelForGroup(pageNumber, grp);
+                return true;
             }
             return true;
         }
@@ -796,6 +1301,9 @@
                 }, true);
             });
             anchor.addEventListener('click', function (ev) {
+                if (handlePdfLinkGestureAnchorClick(pageNumber, ev)) {
+                    return;
+                }
                 handlePdfLinkPointerInteraction(pageNumber, ev);
             }, true);
         });
@@ -804,6 +1312,9 @@
     function renderPdfLinkLayerForPage(pageNumber, page, cssViewport, linkLayerEl, layoutCapture, paintSig, fetchGen) {
         if (!linkLayerEl || !window.pdfjsLib || !pdfjsLib.AnnotationLayer) {
             return Promise.resolve();
+        }
+        if (state._pdfLinkPendingDrag && Number(state._pdfLinkPendingDrag.pageNumber) === Number(pageNumber)) {
+            cleanupPdfLinkPendingDrag(true);
         }
         var key = String(pageNumber);
         linkLayerEl.innerHTML = '';
@@ -1518,6 +2029,9 @@
             }
         }
 
+        cleanupPdfLinkGesture();
+        cleanupPdfLinkPendingDrag(true);
+
         state.activeTool = nextTool;
         var buttons = document.querySelectorAll('#toolbarContent [data-tooltype]');
         buttons.forEach(function (button) {
@@ -1571,6 +2085,8 @@
     }
 
     function clearViewer() {
+        cleanupPdfLinkGesture();
+        cleanupPdfLinkPendingDrag(true);
         var viewer = viewerEl();
         while (viewer && viewer.firstChild) {
             viewer.removeChild(viewer.firstChild);
@@ -2925,6 +3441,8 @@
         updateEffectiveScale();
         syncZoomUiState();
 
+        cleanupPdfLinkGesture();
+        cleanupPdfLinkPendingDrag(true);
         state.layoutRev = (state.layoutRev || 0) + 1;
         cancelAllPdfRenderTasks();
 

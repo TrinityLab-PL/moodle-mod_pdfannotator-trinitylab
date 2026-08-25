@@ -1,6 +1,20 @@
 # PDF Annotator - Zgloszone problemy i sugestie
 
-Data aktualizacji: 2026-02-18
+Data aktualizacji: 2026-08-23
+
+## Dlug techniczny - link layer / Select (otwarte)
+
+Kontekst: wdrozenie `v209_select_link_toggle_20260823_004029` (fix paritetu Select nad linkiem PDF; `reconstructPdfLinkSelectTap`). Ogolnie lepiej niz przed fixem, ale:
+
+- [ ] **Textbox - przesuwanie narzedziem Select**
+  - Obecnie: problem z przeciaganiem/przesuwaniem Textboxa za pomoca Selecta (regresja lub niedomkniecie po fixie link-layer).
+  - Oczekiwane: drag Textboxa Selectem dziala tak samo niezaleznie od tego, czy adnotacja nachodzi na link PDF.
+  - Powiazany backup: `v209_select_link_toggle_20260823_004029`.
+
+- [ ] **Select nad linkiem przy zoom 150%**
+  - Obecnie: przy powiekszeniu 150% pojawiaja sie problemy z klikaniem Select nad obszarem linku (hit-test / warstwa `<a>` vs Konva).
+  - Oczekiwane: ten sam paritet zachowania co przy 100% (zaznaczanie, odznaczanie ramka, brak otwarcia URL na adnotacji).
+  - Do sprawdzenia: rowniez 133% / 200% i fullscreen.
 
 ## Priorytet - funkcjonalne (otwarte)
 
