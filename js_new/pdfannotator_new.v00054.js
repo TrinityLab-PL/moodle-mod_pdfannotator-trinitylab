@@ -78,6 +78,9 @@
         _pdfLinkPendingDrag: null,
         _pdfLinkGesture: null,
         _pdfLinkSkipClickUntil: 0,
+        textboxCreateInFlightByPage: {},
+        textboxDeferredOpenByPage: {},
+        textboxActiveSession: null,
         lastPdfRenderEnvSig: null,
         lastPdfRenderEnvTs: 0,
         metrics: {
@@ -3571,19 +3574,41 @@
         if (!pageContainer) {
             return;
         }
-        var editingId = null;
-        var ed = pageContainer.querySelector(".tl-inline-text-editor");
-        if (ed && ed.dataset && ed.dataset.annotationId) {
-            editingId = String(ed.dataset.annotationId);
+        var activeEditor = null;
+        if (state.textboxActiveSession && state.textboxActiveSession.editor && pageContainer.contains(state.textboxActiveSession.editor)) {
+            activeEditor = state.textboxActiveSession.editor;
+        } else {
+            activeEditor = pageContainer.querySelector('.tl-inline-text-editor');
         }
-        pageContainer.querySelectorAll(".tl-textbox-label").forEach(function (el) {
-            var id = el.getAttribute("data-annotation-id") || "";
+        var editingId = null;
+        var activeSessionId = '';
+        if (activeEditor && activeEditor.dataset) {
+            if (activeEditor.dataset.annotationId) {
+                editingId = String(activeEditor.dataset.annotationId);
+            }
+            activeSessionId = String(activeEditor.dataset.sessionId || '');
+        }
+        pageContainer.querySelectorAll('.tl-inline-text-editor').forEach(function (el) {
+            if (activeEditor && el === activeEditor) {
+                return;
+            }
+            el.remove();
+        });
+        pageContainer.querySelectorAll('.tl-save-textbox').forEach(function (btn) {
+            var btnSessionId = String(btn.getAttribute('data-editor-session-id') || '');
+            if (activeSessionId && btnSessionId && btnSessionId === activeSessionId) {
+                return;
+            }
+            btn.remove();
+        });
+        pageContainer.querySelectorAll('.tl-textbox-label').forEach(function (el) {
+            var id = el.getAttribute('data-annotation-id') || '';
             if (editingId && id === editingId) {
                 return;
             }
             el.remove();
         });
-        pageContainer.querySelectorAll(".tl-annotation-comment-badge").forEach(function (el) {
+        pageContainer.querySelectorAll('.tl-annotation-comment-badge').forEach(function (el) {
             el.remove();
         });
     }
@@ -4643,7 +4668,11 @@
                         return;
                     }
                 }
-                showNewTextboxEditor(pageNumber, pointer.x, pointer.y);
+                var deferredPointerX = pointer.x;
+                var deferredPointerY = pointer.y;
+                setTimeout(function () {
+                    showNewTextboxEditor(pageNumber, deferredPointerX, deferredPointerY, { source: 'mouseup' });
+                }, 0);
                 draftStart = null;
                 textboxNativeGesture = null;
                 return;
@@ -6507,6 +6536,39 @@
         return boxLeftPx / s;
     }
 
+    function queueDeferredTextboxEditorOpen(pageNumber, pointerX, pointerY, options) {
+        var key = String(pageNumber);
+        state.textboxDeferredOpenByPage[key] = {
+            pageNumber: pageNumber,
+            pointerX: pointerX,
+            pointerY: pointerY,
+            options: options || {}
+        };
+    }
+
+    function flushDeferredTextboxEditorOpen(pageNumber) {
+        var key = String(pageNumber);
+        var queued = state.textboxDeferredOpenByPage[key];
+        if (!queued) {
+            return;
+        }
+        if (state.textboxCreateInFlightByPage[key]) {
+            return;
+        }
+        delete state.textboxDeferredOpenByPage[key];
+        var queuedOptions = queued.options || {};
+        setTimeout(function () {
+            var opts = {
+                skipInflight: true,
+                source: queuedOptions.source || 'deferred-open'
+            };
+            if (typeof queuedOptions.initialContent === 'string') {
+                opts.initialContent = queuedOptions.initialContent;
+            }
+            showNewTextboxEditor(queued.pageNumber, queued.pointerX, queued.pointerY, opts);
+        }, 0);
+    }
+
     function applyTextboxLabelLayout(pageNumber, labelEl, annotation, scale) {
         var viewer = viewerEl();
         var pageElement = viewer ? viewer.querySelector('.page[data-page-number="' + pageNumber + '"]') : null;
@@ -6539,12 +6601,19 @@
             return;
         }
         if (existing) {
-            existing.remove();
+            var activeSession = state.textboxActiveSession;
+            if (activeSession && activeSession.pageNumber === pageNumber && typeof activeSession.commit === 'function') {
+                activeSession.commit();
+            } else {
+                existing.remove();
+            }
         }
 
         var editor = document.createElement('textarea');
         editor.className = 'tl-inline-text-editor';
         editor.dataset.annotationId = String(annotationData.uuid);
+        var sessionId = 'tb-existing-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
+        editor.dataset.sessionId = sessionId;
         editor.value = annotationData.content || '';
         editor.setAttribute('wrap', 'off');
         var editorFontSize = Number(annotationData.size || state.textSize || 14);
@@ -6597,6 +6666,7 @@
         saveBtn.className = 'tl-save-textbox';
         saveBtn.style.cursor = 'pointer';
         saveBtn.setAttribute('aria-label', 'Save');
+        saveBtn.setAttribute('data-editor-session-id', sessionId);
         saveBtn.innerHTML = '<i class="fa fa-check" aria-hidden="true"></i>';
         saveBtn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); commit(); });
         saveBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
@@ -6627,6 +6697,21 @@
         editor.select();
 
         var committed = false;
+        function clearActiveSession() {
+            if (state.textboxActiveSession && state.textboxActiveSession.id === sessionId) {
+                state.textboxActiveSession = null;
+            }
+        }
+        function cleanupEditor() {
+            if (saveBtn && saveBtn.parentNode) {
+                saveBtn.parentNode.removeChild(saveBtn);
+            }
+            if (measureEl && measureEl.parentNode) {
+                measureEl.parentNode.removeChild(measureEl);
+            }
+            editor.remove();
+            clearActiveSession();
+        }
         function commit(fromBlur) {
             if (committed) {
                 return;
@@ -6634,12 +6719,6 @@
             committed = true;
             if (fromBlur) {
                 state.ignoreNextTextboxClick = true;
-            }
-            if (saveBtn && saveBtn.parentNode) {
-                saveBtn.parentNode.removeChild(saveBtn);
-            }
-            if (measureEl && measureEl.parentNode) {
-                measureEl.parentNode.removeChild(measureEl);
             }
             annotationData.content = editor.value || '';
             annotationData.size = editorFontSize;
@@ -6666,24 +6745,37 @@
                 contentLength: (annotationData.content || '').length
             });
             persistAnnotation(annotationData);
-            editor.remove();
+            cleanupEditor();
             clearSelection();
         }
-        editor.addEventListener('blur', function () { commit(true); });
+        function onBlur() {
+            commit(true);
+        }
+        function cancelEditing() {
+            if (committed) {
+                return;
+            }
+            committed = true;
+            editor.removeEventListener('blur', onBlur);
+            if (labelEl) {
+                labelEl.style.visibility = 'visible';
+            }
+            cleanupEditor();
+            clearSelection();
+        }
+        state.textboxActiveSession = {
+            id: sessionId,
+            pageNumber: pageNumber,
+            editor: editor,
+            commit: function () { commit(false); },
+            cancel: cancelEditing
+        };
+        editor.addEventListener('blur', onBlur);
         editor.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {
-                committed = true;
-                if (saveBtn && saveBtn.parentNode) {
-                    saveBtn.parentNode.removeChild(saveBtn);
-                }
-                if (measureEl && measureEl.parentNode) {
-                    measureEl.parentNode.removeChild(measureEl);
-                }
-                if (labelEl) {
-                    labelEl.style.visibility = 'visible';
-                }
-                editor.remove();
-                clearSelection();
+                event.preventDefault();
+                event.stopPropagation();
+                cancelEditing();
                 return;
             }
             if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
@@ -6693,7 +6785,14 @@
         });
     }
 
-    function showNewTextboxEditor(pageNumber, pointerX, pointerY) {
+    function showNewTextboxEditor(pageNumber, pointerX, pointerY, options) {
+        options = options || {};
+        var pageKey = String(pageNumber);
+        if (!options.skipInflight && state.textboxCreateInFlightByPage[pageKey]) {
+            queueDeferredTextboxEditorOpen(pageNumber, pointerX, pointerY, options);
+            return;
+        }
+
         var viewer = viewerEl();
         if (!viewer) {
             return;
@@ -6703,9 +6802,29 @@
             return;
         }
 
+        var activeSession = state.textboxActiveSession;
+        if (activeSession && activeSession.pageNumber === pageNumber && typeof activeSession.commit === 'function') {
+            activeSession.commit();
+        } else {
+            var staleEditor = pageElement.querySelector('.tl-inline-text-editor');
+            if (staleEditor) {
+                staleEditor.remove();
+            }
+        }
+        if (!options.skipInflight && state.textboxCreateInFlightByPage[pageKey]) {
+            queueDeferredTextboxEditorOpen(pageNumber, pointerX, pointerY, options);
+            return;
+        }
+        pageElement.querySelectorAll('.tl-save-textbox').forEach(function (btn) {
+            btn.remove();
+        });
+
         var editor = document.createElement('textarea');
         editor.className = 'tl-inline-text-editor';
-        editor.value = '';
+        var sessionId = 'tb-new-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
+        editor.dataset.sessionId = sessionId;
+        var initialContent = (typeof options.initialContent === 'string') ? options.initialContent : '';
+        editor.value = initialContent;
         editor.setAttribute('wrap', 'off');
 
         var editorFontSize = Number(state.textSize || 14);
@@ -6771,6 +6890,7 @@
         saveBtn.className = 'tl-save-textbox';
         saveBtn.style.cursor = 'pointer';
         saveBtn.setAttribute('aria-label', 'Save');
+        saveBtn.setAttribute('data-editor-session-id', sessionId);
         saveBtn.innerHTML = '<i class="fa fa-check" aria-hidden="true"></i>';
         saveBtn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); commit(); });
         saveBtn.addEventListener('mousedown', function (e) { e.stopPropagation(); });
@@ -6796,6 +6916,11 @@
 
         var committed = false;
 
+        function clearActiveSession() {
+            if (state.textboxActiveSession && state.textboxActiveSession.id === sessionId) {
+                state.textboxActiveSession = null;
+            }
+        }
         function cleanup() {
             try {
                 if (saveBtn && saveBtn.parentNode) {
@@ -6806,6 +6931,15 @@
                 }
                 editor.remove();
             } catch (e) {}
+            clearActiveSession();
+        }
+        function cancelEditing() {
+            if (committed) {
+                return;
+            }
+            committed = true;
+            editor.removeEventListener('blur', onBlur);
+            cleanup();
         }
 
         function commit(fromBlur) {
@@ -6864,6 +6998,14 @@
                 content: content
             };
 
+            var inFlightMarker = {
+                sessionId: sessionId,
+                startedAt: Date.now()
+            };
+            state.textboxCreateInFlightByPage[pageKey] = inFlightMarker;
+            cleanup();
+
+            var failed = false;
             ajax('create', {
                 page_Number: String(pageNumber),
                 annotation: JSON.stringify(annotation)
@@ -6884,17 +7026,47 @@
                     clearSelection();
                 }
             }).catch(function (error) {
+                failed = true;
+                delete state.textboxDeferredOpenByPage[pageKey];
                 console.error('Create annotation failed', error);
+                try {
+                    window.alert(moodlePdfStr('error:addAnnotation', 'Could not save textbox. Text restored in editor.'));
+                } catch (_alertError) {}
+                setTimeout(function () {
+                    showNewTextboxEditor(pageNumber, pointerX, pointerY, {
+                        skipInflight: true,
+                        initialContent: content,
+                        source: 'create-error-recovery'
+                    });
+                }, 0);
             }).finally(function () {
-                cleanup();
+                if (state.textboxCreateInFlightByPage[pageKey] === inFlightMarker) {
+                    delete state.textboxCreateInFlightByPage[pageKey];
+                }
+                if (!failed) {
+                    flushDeferredTextboxEditorOpen(pageNumber);
+                }
             });
         }
 
-        editor.addEventListener('blur', function () { commit(true); });
+        function onBlur() {
+            commit(true);
+        }
+
+        state.textboxActiveSession = {
+            id: sessionId,
+            pageNumber: pageNumber,
+            editor: editor,
+            commit: function () { commit(false); },
+            cancel: cancelEditing
+        };
+
+        editor.addEventListener('blur', onBlur);
         editor.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {
-                committed = true;
-                cleanup();
+                event.preventDefault();
+                event.stopPropagation();
+                cancelEditing();
                 return;
             }
             if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
