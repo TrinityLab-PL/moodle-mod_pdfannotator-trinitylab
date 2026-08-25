@@ -25,6 +25,11 @@ Kontekst: wdrozenie `v209_select_link_toggle_20260823_004029` (fix paritetu Sele
   - Plan naprawy: `/home/piotrad/.cursor/plans/textbox_single-click_fix_e41a065b.plan.md`
   - Powiazane backupy: v192 (native drag), v197 (caret OK - nie ruszac).
 
+- [ ] **Textbox - zapis przy scrollu (wariant A/B)**
+  - Obecnie: w scenariuszu `rrrrr` / `ttttt` / `yyyyy` po scrollu i kliknieciu poza polem pozycje wracaja niespojnie; po `Ctrl+F5` potrafi zniknac `ttttt`.
+  - Oczekiwane: po sekwencji A i B oraz po `Ctrl+F5` widoczne i trwale sa wszystkie wpisy (`rrrrr`, `ttttt`, `yyyyy`), bez utraty w czasie scrolla.
+  - Plan naprawy: `/home/piotrad/.cursor/plans/textbox_scroll_save_fix_cd2b433d.plan.md`
+
 - [ ] **Przesuwanie obiektu `drawing` (kreska)**
   - Obecnie: jest lepiej, ale ramka przesuwania bywa znacznie obok samego obiektu (kreski).
   - Oczekiwane: ramka i obiekt poruszaja sie spojnie, bez rozjazdu.

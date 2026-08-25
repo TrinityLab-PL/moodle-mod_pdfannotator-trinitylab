@@ -3201,6 +3201,10 @@
             if (state.renderingPages[String(pageNo)]) {
                 return;
             }
+            var activeTextboxSession = state.textboxActiveSession;
+            if (activeTextboxSession && Number(activeTextboxSession.pageNumber) === Number(pageNo) && typeof activeTextboxSession.commit === 'function') {
+                activeTextboxSession.commit();
+            }
             var pageState = state.pages[pageNo];
             if (!pageState) {
                 return;
@@ -3304,6 +3308,72 @@
         }
     }
 
+    function normalizePageNumberValue(value) {
+        var parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    function annotationIdentityKey(annotation) {
+        if (!annotation) {
+            return '';
+        }
+        if (annotation.uuid != null && String(annotation.uuid) !== '') {
+            return 'uuid:' + String(annotation.uuid);
+        }
+        if (annotation.id != null && String(annotation.id) !== '') {
+            return 'id:' + String(annotation.id);
+        }
+        return '';
+    }
+
+    function mergeAnnotationsPreservingFresh(existingAnnotations, incomingAnnotations) {
+        var incoming = Array.isArray(incomingAnnotations) ? incomingAnnotations.slice() : [];
+        var seen = {};
+        incoming.forEach(function (annotation) {
+            var identity = annotationIdentityKey(annotation);
+            if (identity) {
+                seen[identity] = true;
+            }
+        });
+        if (!Array.isArray(existingAnnotations)) {
+            return incoming;
+        }
+        existingAnnotations.forEach(function (annotation) {
+            var identity = annotationIdentityKey(annotation);
+            if (!identity || seen[identity]) {
+                return;
+            }
+            incoming.push(annotation);
+            seen[identity] = true;
+        });
+        return incoming;
+    }
+
+    function upsertAnnotationInCache(pageNumber, annotation) {
+        var normalizedPage = normalizePageNumberValue(pageNumber);
+        if (normalizedPage == null || !annotation) {
+            return;
+        }
+        var key = String(normalizedPage);
+        var current = Array.isArray(state.annotationsCache[key]) ? state.annotationsCache[key].slice() : [];
+        var incomingIdentity = annotationIdentityKey(annotation);
+        var replaced = false;
+        if (incomingIdentity) {
+            current = current.map(function (item) {
+                if (annotationIdentityKey(item) === incomingIdentity) {
+                    replaced = true;
+                    return annotation;
+                }
+                return item;
+            });
+        }
+        if (!replaced) {
+            current.push(annotation);
+        }
+        state.annotationsCache[key] = current;
+        delete state.annotationsHashByPage[key];
+    }
+
     function maybeBatchPrefetchAnnotations(pageNumbers) {
         if (!state.perfFlags.batchRead || !Array.isArray(pageNumbers) || !pageNumbers.length) {
             return;
@@ -3326,8 +3396,9 @@
             missing.forEach(function (pageNo) {
                 var key = String(pageNo);
                 var arr = Array.isArray(grouped[key]) ? grouped[key] : [];
-                state.annotationsCache[key] = arr;
-                state.annotationsHashByPage[key] = JSON.stringify(arr);
+                var existing = Array.isArray(state.annotationsCache[key]) ? state.annotationsCache[key] : [];
+                state.annotationsCache[key] = mergeAnnotationsPreservingFresh(existing, arr);
+                delete state.annotationsHashByPage[key];
             });
             state.annotationsLoadedOnce = true;
         }).catch(function () {
@@ -3723,9 +3794,11 @@
             _cb: String(Date.now()) + '-' + String(pageNumber)
         }).then(function (data) {
             var annotations = Array.isArray(data && data.annotations) ? data.annotations : [];
-            state.annotationsCache[key] = annotations;
-            state.annotationsHashByPage[key] = JSON.stringify(annotations);
-            drawAnnotationsForPage(pageNumber, annotations, true);
+            var existingAnnotations = Array.isArray(state.annotationsCache[key]) ? state.annotationsCache[key] : [];
+            var mergedAnnotations = mergeAnnotationsPreservingFresh(existingAnnotations, annotations);
+            state.annotationsCache[key] = mergedAnnotations;
+            delete state.annotationsHashByPage[key];
+            drawAnnotationsForPage(pageNumber, mergedAnnotations, true);
         }).catch(function (error) {
             console.error('Loading annotations failed for page', pageNumber, error);
         }).finally(function () {
@@ -4053,7 +4126,7 @@
                 }
             }
             activeGroup.setAttr('annotationData', annotation);
-            persistAnnotation(annotation);
+            persistAnnotation(annotation, pageNumber);
             state.ignoreNextTextboxClick = true;
         });
         stage.add(annotationLayer);
@@ -6602,10 +6675,16 @@
         }
         if (existing) {
             var activeSession = state.textboxActiveSession;
-            if (activeSession && activeSession.pageNumber === pageNumber && typeof activeSession.commit === 'function') {
+            var committedSessionId = '';
+            if (activeSession && typeof activeSession.commit === 'function') {
+                committedSessionId = String(activeSession.id || '');
                 activeSession.commit();
-            } else {
-                existing.remove();
+            }
+            if (existing.parentNode) {
+                var existingSessionId = String((existing.dataset && existing.dataset.sessionId) || '');
+                if (!committedSessionId || existingSessionId !== committedSessionId) {
+                    existing.remove();
+                }
             }
         }
 
@@ -6744,7 +6823,7 @@
                 scale: state.scale || 1,
                 contentLength: (annotationData.content || '').length
             });
-            persistAnnotation(annotationData);
+            persistAnnotation(annotationData, pageNumber);
             cleanupEditor();
             clearSelection();
         }
@@ -6803,11 +6882,15 @@
         }
 
         var activeSession = state.textboxActiveSession;
-        if (activeSession && activeSession.pageNumber === pageNumber && typeof activeSession.commit === 'function') {
+        var committedSessionId = '';
+        if (activeSession && typeof activeSession.commit === 'function') {
+            committedSessionId = String(activeSession.id || '');
             activeSession.commit();
-        } else {
-            var staleEditor = pageElement.querySelector('.tl-inline-text-editor');
-            if (staleEditor) {
+        }
+        var staleEditor = pageElement.querySelector('.tl-inline-text-editor');
+        if (staleEditor && staleEditor.parentNode) {
+            var staleSessionId = String((staleEditor.dataset && staleEditor.dataset.sessionId) || '');
+            if (!committedSessionId || staleSessionId !== committedSessionId) {
                 staleEditor.remove();
             }
         }
@@ -6958,11 +7041,16 @@
                 return;
             }
 
-            var pageState = getPageState(pageNumber);
-            if (!pageState) {
-                cleanup();
-                return;
+            var sessionPageNumber = pageNumber;
+            var activeSessionAtCommit = state.textboxActiveSession;
+            if (activeSessionAtCommit && String(activeSessionAtCommit.id || '') === sessionId) {
+                var parsedSessionPage = parseInt(activeSessionAtCommit.pageNumber, 10);
+                if (Number.isFinite(parsedSessionPage)) {
+                    sessionPageNumber = parsedSessionPage;
+                }
             }
+            var sessionPageKey = String(sessionPageNumber);
+            var sessionPageElement = viewer.querySelector('.page[data-page-number="' + sessionPageNumber + '"]') || pageElement;
 
             var unscaledBoxX = (pointerX - paddingLeft) / state.scale;
             var unscaledBoxY = (pointerY - paddingTop - baselineOffset) / state.scale;
@@ -6980,7 +7068,7 @@
             };
 
             var scale = state.scale || 1;
-            syncTextboxMetrics(measure, pageElement, scale);
+            syncTextboxMetrics(measure, sessionPageElement, scale);
 
             var _tbLines2 = content.split('\n').length;
             var _annX = (_tbLines2 === 1)
@@ -7002,12 +7090,12 @@
                 sessionId: sessionId,
                 startedAt: Date.now()
             };
-            state.textboxCreateInFlightByPage[pageKey] = inFlightMarker;
+            state.textboxCreateInFlightByPage[sessionPageKey] = inFlightMarker;
             cleanup();
 
             var failed = false;
             ajax('create', {
-                page_Number: String(pageNumber),
+                page_Number: String(sessionPageNumber),
                 annotation: JSON.stringify(annotation)
             }).then(function (created) {
                 if (!created || !created.uuid) {
@@ -7017,34 +7105,37 @@
                 created.height = annotation.height;
                 created.x = annotation.x;
                 created.y = annotation.y;
-                var createdGroup = drawAnnotation(pageNumber, created);
-                var pageState = getPageState(pageNumber);
-                if (pageState) {
-                    pageState.annotationLayer.draw();
+                created.page = sessionPageNumber;
+                var createdGroup = null;
+                var currentPageState = getPageState(sessionPageNumber);
+                if (currentPageState) {
+                    createdGroup = drawAnnotation(sessionPageNumber, created);
+                    currentPageState.annotationLayer.draw();
                 }
+                upsertAnnotationInCache(sessionPageNumber, clone(created));
                 if (createdGroup) {
                     clearSelection();
                 }
             }).catch(function (error) {
                 failed = true;
-                delete state.textboxDeferredOpenByPage[pageKey];
+                delete state.textboxDeferredOpenByPage[sessionPageKey];
                 console.error('Create annotation failed', error);
                 try {
                     window.alert(moodlePdfStr('error:addAnnotation', 'Could not save textbox. Text restored in editor.'));
                 } catch (_alertError) {}
                 setTimeout(function () {
-                    showNewTextboxEditor(pageNumber, pointerX, pointerY, {
+                    showNewTextboxEditor(sessionPageNumber, pointerX, pointerY, {
                         skipInflight: true,
                         initialContent: content,
                         source: 'create-error-recovery'
                     });
                 }, 0);
             }).finally(function () {
-                if (state.textboxCreateInFlightByPage[pageKey] === inFlightMarker) {
-                    delete state.textboxCreateInFlightByPage[pageKey];
+                if (state.textboxCreateInFlightByPage[sessionPageKey] === inFlightMarker) {
+                    delete state.textboxCreateInFlightByPage[sessionPageKey];
                 }
                 if (!failed) {
-                    flushDeferredTextboxEditorOpen(pageNumber);
+                    flushDeferredTextboxEditorOpen(sessionPageNumber);
                 }
             });
         }
@@ -7955,7 +8046,7 @@
         }
 
         group.setAttr('annotationData', annotation);
-        persistAnnotation(annotation);
+        persistAnnotation(annotation, pageNumber);
         if (state.activeAnnotation && (state.activeAnnotation.group === group || state.activeAnnotation.annotationId === String(annotation.uuid))) {
             state.activeAnnotation.group = group;
             state.activeAnnotation.pageNumber = pageNumber;
@@ -7997,12 +8088,27 @@
         return replacement || null;
     }
 
-    function persistAnnotation(annotation) {
+    function persistAnnotation(annotation, pageNumberHint) {
+        var resolvedPageNumber = normalizePageNumberValue(pageNumberHint);
+        if (resolvedPageNumber == null && annotation) {
+            resolvedPageNumber = normalizePageNumberValue(annotation.page);
+        }
+        if (resolvedPageNumber == null && annotation) {
+            resolvedPageNumber = normalizePageNumberValue(annotation.pageNumber);
+        }
+        var annotationSnapshot = clone(annotation || {});
+        if (resolvedPageNumber != null) {
+            annotationSnapshot.page = resolvedPageNumber;
+        }
+
         ajax('update', {
             annotationId: String(annotation.uuid),
             annotation: JSON.stringify({ annotation: annotation })
         }).then(function () {
-            invalidateAnnotationCache(annotation.page || (state.activeAnnotation ? state.activeAnnotation.pageNumber : null));
+            if (resolvedPageNumber == null) {
+                return;
+            }
+            upsertAnnotationInCache(resolvedPageNumber, annotationSnapshot);
         }).catch(function (error) {
             console.error('Update annotation failed', error);
         });
