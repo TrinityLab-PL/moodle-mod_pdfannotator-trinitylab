@@ -1,15 +1,27 @@
 # PDF Annotator - Zgloszone problemy i sugestie
 
-Data aktualizacji: 2026-08-23
+Data aktualizacji: 2026-08-26
 
 ## Dlug techniczny - link layer / Select (otwarte)
 
 Kontekst: wdrozenie `v209_select_link_toggle_20260823_004029` (fix paritetu Select nad linkiem PDF; `reconstructPdfLinkSelectTap`). Ogolnie lepiej niz przed fixem, ale:
 
-- [ ] **Textbox - przesuwanie narzedziem Select**
-  - Obecnie: problem z przeciaganiem/przesuwaniem Textboxa za pomoca Selecta (regresja lub niedomkniecie po fixie link-layer).
-  - Oczekiwane: drag Textboxa Selectem dziala tak samo niezaleznie od tego, czy adnotacja nachodzi na link PDF.
-  - Powiazany backup: `v209_select_link_toggle_20260823_004029`.
+- [x] **Textbox - przesuwanie narzedziem Select (nad linkiem)**
+  - Fix: v215 (`remapPdfLinkTransformerInteriorHit`), v218 (cursor + dblclick follow-up).
+  - SMOKE PASS (2026-08-26): drag Textboxa Selectem nad linkiem dziala.
+  - Backup: `v215_select_textbox_link_drag_20260826_175712`, `v218_textbox_cursor_dblclick_20260826_223753`.
+
+- [ ] **Textbox nad linkiem - double-click reedycja: podwojna ramka (zaznaczenie + edytor)**
+  - Obecnie (po v218): pierwszy klik nad linkiem uruchamia zaznaczenie (transformer + rozowy krzyzyk); drugi klik wlacza reedycje (pole tekstowe + zielony ptaszek), ale zaznaczenie **zostaje** — widoczne sa **dwie ramki jednoczesnie**.
+  - Poza linkiem: tego efektu **nie ma** (paritet oczekiwany).
+  - Oczekiwane: po wejsciu w reedycje brak rownoleglego stanu „zaznaczone + edytor”; zachowanie jak poza linkiem (edytor bez wiszacego zaznaczenia / krzyzyka).
+  - Powiazany backup: `v218_textbox_cursor_dblclick_20260826_223753`.
+
+- [ ] **Textbox nad linkiem - resize kotwic: zaznaczenie w starym rozmiarze**
+  - Obecnie (po v218): przeciaganie rogu (resize) nad linkiem konczy sie **zaznaczeniem** pola i rozowym krzyzykiem w miejscu **pierwotnego** rozmiaru, a nie przy aktualnym prawym górnym rogu po resize.
+  - Poza linkiem: po resize pole jest **odznaczone** — brak rozowego krzyzyka i kotwic; tak ma byc rowniez nad linkiem.
+  - Oczekiwane: paritet z zachowaniem poza linkiem (po resize: odznaczenie, bez krzyzyka/kotwic; pozycja UI zgodna z aktualnym bbox).
+  - Powiazany backup: `v218_textbox_cursor_dblclick_20260826_223753`.
 
 - [ ] **Select nad linkiem przy zoom 150%**
   - Obecnie: przy powiekszeniu 150% pojawiaja sie problemy z klikaniem Select nad obszarem linku (hit-test / warstwa `<a>` vs Konva).
