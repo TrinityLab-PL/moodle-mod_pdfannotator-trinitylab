@@ -2253,12 +2253,84 @@
         counter.textContent = String(c) + ' / ' + String(total);
     }
 
+    function maybeCommitHiddenTextboxSession() {
+        if (isTheatreLayoutTransitionBusy()) {
+            return;
+        }
+        var session = state.textboxActiveSession;
+        if (!session || typeof session.commit !== 'function' || !session.editor) {
+            return;
+        }
+        var editor = session.editor;
+        if (!editor || !editor.isConnected) {
+            return;
+        }
+
+        var sessionPageNo = parseInt(session.pageNumber, 10);
+        if (Number.isFinite(sessionPageNo) && state.textboxCreateInFlightByPage[String(sessionPageNo)]) {
+            return;
+        }
+
+        var viewer = viewerEl();
+        if (!viewer) {
+            return;
+        }
+        var viewerRect = viewer.getBoundingClientRect();
+        if (!viewerRect || viewerRect.width <= 0 || viewerRect.height <= 0) {
+            return;
+        }
+
+        var clipTop = viewerRect.top;
+        var clipBottom = viewerRect.bottom;
+        ['#tl-express-toolbar', '#pdftoolbar'].forEach(function (selector) {
+            var toolbar = document.querySelector(selector);
+            if (!toolbar || !toolbar.isConnected) {
+                return;
+            }
+            var toolbarRect = toolbar.getBoundingClientRect();
+            if (!toolbarRect || toolbarRect.width <= 0 || toolbarRect.height <= 0) {
+                return;
+            }
+            var overlapsHorizontally = toolbarRect.left < viewerRect.right && toolbarRect.right > viewerRect.left;
+            var overlapsVertically = toolbarRect.top < viewerRect.bottom && toolbarRect.bottom > viewerRect.top;
+            if (overlapsHorizontally && overlapsVertically) {
+                clipTop = Math.max(clipTop, toolbarRect.bottom);
+            }
+        });
+        if (clipBottom <= clipTop) {
+            return;
+        }
+
+        var marginPx = 16;
+        try {
+            var fontSizePx = parseFloat(window.getComputedStyle(editor).fontSize);
+            if (Number.isFinite(fontSizePx) && fontSizePx > 0) {
+                marginPx = fontSizePx;
+            }
+        } catch (_fontErr) {}
+
+        var editorRect = editor.getBoundingClientRect();
+        if (!editorRect || editorRect.width <= 0 || editorRect.height <= 0) {
+            return;
+        }
+        var hiddenAbove = editorRect.bottom <= (clipTop - marginPx);
+        var hiddenBelow = editorRect.top >= (clipBottom + marginPx);
+        if (!hiddenAbove && !hiddenBelow) {
+            return;
+        }
+
+        if (state.textboxActiveSession && state.textboxActiveSession.id === session.id) {
+            session.commit();
+        }
+    }
+
     function bindViewerScroll() {
         var viewer = viewerEl();
         if (!viewer) {
             return;
         }
         var savePosTimer = null;
+        var hideCommitRafId = 0;
         viewer.addEventListener('scroll', function () {
             var now = Date.now();
             var topNow = viewer.scrollTop;
@@ -2285,6 +2357,17 @@
             updateDeleteButtonPosition();
             updateAllCommentBadgePositions();
             scheduleRenderWindowUpdate(false);
+            if (typeof requestAnimationFrame === 'function') {
+                if (hideCommitRafId && typeof cancelAnimationFrame === 'function') {
+                    cancelAnimationFrame(hideCommitRafId);
+                }
+                hideCommitRafId = requestAnimationFrame(function () {
+                    hideCommitRafId = 0;
+                    maybeCommitHiddenTextboxSession();
+                });
+            } else {
+                maybeCommitHiddenTextboxSession();
+            }
             if (state.scrollIdlePruneTimer) {
                 clearTimeout(state.scrollIdlePruneTimer);
                 state.scrollIdlePruneTimer = null;
