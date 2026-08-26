@@ -797,6 +797,45 @@
         return null;
     }
 
+    function isPdfLinkTransformerAnchor(targetNode) {
+        var node = targetNode || null;
+        while (node) {
+            if (node.hasName && node.hasName('_anchor')) {
+                return true;
+            }
+            if (node.name && String(node.name()).indexOf('_anchor') !== -1) {
+                return true;
+            }
+            node = node.getParent ? node.getParent() : null;
+        }
+        return false;
+    }
+
+    function remapPdfLinkTransformerInteriorHit(pageNumber, hit) {
+        if (!hit || hit.kind !== 'transformer') {
+            return hit;
+        }
+        if (isPdfLinkTransformerAnchor(hit.target)) {
+            return hit;
+        }
+        var pageState = getPageState(pageNumber);
+        if (!pageState || !pageState.transformer || typeof pageState.transformer.nodes !== 'function') {
+            return hit;
+        }
+        var nodes = pageState.transformer.nodes();
+        if (!Array.isArray(nodes) || nodes.length !== 1) {
+            return hit;
+        }
+        var group = nodes[0];
+        if (!group || !group.getAttr || !group.getAttr('annotationData')) {
+            return hit;
+        }
+        if (!(group.draggable && group.draggable())) {
+            return hit;
+        }
+        return { kind: 'group', group: group };
+    }
+
     function getPrimaryClientPointFromEvent(nativeEvt) {
         if (!nativeEvt) {
             return null;
@@ -1214,7 +1253,12 @@
         finalizePdfLinkGestureOnUp(nativeEvt, pending);
         cleanupPdfLinkPendingDrag(true);
         if (shouldOpenTouchPanel && group) {
-            reconstructPdfLinkSelectTap(pageNumber, 'group', group);
+            var gesture = state._pdfLinkGesture;
+            if (gesture && Number(gesture.pageNumber) === Number(pageNumber) && gesture.kind === 'transformer') {
+                reconstructPdfLinkSelectTap(pageNumber, 'transformer', null, { selectGroup: false });
+            } else {
+                reconstructPdfLinkSelectTap(pageNumber, 'group', group);
+            }
         }
     }
 
@@ -1223,11 +1267,12 @@
             return false;
         }
         var type = String(nativeEvt.type || '');
-        if ((type === 'mousedown' || type === 'touchstart') && !isPrimarySelectDownEvent(nativeEvt)) {
+        var isDown = (type === 'mousedown' || type === 'touchstart');
+        if (isDown && !isPrimarySelectDownEvent(nativeEvt)) {
             return false;
         }
-        var hit = findKonvaHitAtClientPoint(pageNumber, nativeEvt);
-        if (!hit) {
+        var rawHit = findKonvaHitAtClientPoint(pageNumber, nativeEvt);
+        if (!rawHit) {
             return false;
         }
         if (nativeEvt && typeof nativeEvt.preventDefault === 'function') {
@@ -1237,36 +1282,47 @@
             nativeEvt.stopImmediatePropagation();
         }
         var gesture = null;
-        if (type === 'mousedown' || type === 'touchstart') {
-            gesture = startPdfLinkGesture(pageNumber, hit, nativeEvt);
+        if (isDown) {
+            gesture = startPdfLinkGesture(pageNumber, rawHit, nativeEvt);
         }
-        if (hit.kind === 'transformer' && hit.target) {
-            if (type === 'mousedown' || type === 'touchstart') {
-                var pageStateT = getPageState(pageNumber);
-                if (pageStateT && pageStateT.transformer && pageStateT.stage) {
-                    pageStateT.stage.setPointersPositions(nativeEvt);
-                    if (typeof pageStateT.transformer._handleMouseDown === 'function') {
-                        pageStateT.transformer._handleMouseDown({ target: hit.target, evt: nativeEvt, type: 'mousedown' });
-                    } else {
-                        hit.target.fire('mousedown', { evt: nativeEvt });
+        if (rawHit.kind === 'transformer' && rawHit.target) {
+            if (isDown) {
+                var actionHit = remapPdfLinkTransformerInteriorHit(pageNumber, rawHit);
+                var startedPending = false;
+                if (actionHit && actionHit.kind === 'group' && actionHit.group) {
+                    var dragGroup = actionHit.group;
+                    var canDragGroup = !!(dragGroup.draggable && dragGroup.draggable());
+                    if (type === 'touchstart' || canDragGroup) {
+                        startedPending = startPdfLinkPendingDrag(pageNumber, dragGroup, nativeEvt, { allowDrag: canDragGroup });
+                    }
+                } else {
+                    var pageStateT = getPageState(pageNumber);
+                    if (pageStateT && pageStateT.transformer && pageStateT.stage) {
+                        pageStateT.stage.setPointersPositions(nativeEvt);
+                        if (typeof pageStateT.transformer._handleMouseDown === 'function') {
+                            pageStateT.transformer._handleMouseDown({ target: rawHit.target, evt: nativeEvt, type: 'mousedown' });
+                        } else if (rawHit.target && rawHit.target.fire) {
+                            rawHit.target.fire('mousedown', { evt: nativeEvt });
+                        }
                     }
                 }
-                if (gesture) {
+                if (gesture && !startedPending) {
                     attachPdfLinkGestureListeners(gesture);
                 }
             }
             return true;
         }
+        var hit = rawHit;
         if (hit.kind === 'group' && hit.group) {
             var grp = hit.group;
             var canDrag = !!(grp.draggable && grp.draggable());
             selectAnnotation(pageNumber, grp);
-            if (type === 'mousedown' || type === 'touchstart') {
-                var startedPending = false;
+            if (isDown) {
+                var startedPendingGroup = false;
                 if (type === 'touchstart' || canDrag) {
-                    startedPending = startPdfLinkPendingDrag(pageNumber, grp, nativeEvt, { allowDrag: canDrag });
+                    startedPendingGroup = startPdfLinkPendingDrag(pageNumber, grp, nativeEvt, { allowDrag: canDrag });
                 }
-                if (gesture && !startedPending) {
+                if (gesture && !startedPendingGroup) {
                     attachPdfLinkGestureListeners(gesture);
                 }
                 return true;
