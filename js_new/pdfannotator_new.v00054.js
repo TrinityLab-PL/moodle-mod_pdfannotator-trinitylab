@@ -81,6 +81,7 @@
         textboxCreateInFlightByPage: {},
         textboxDeferredOpenByPage: {},
         textboxActiveSession: null,
+        _textboxOpenGuard: null,
         lastPdfRenderEnvSig: null,
         lastPdfRenderEnvTs: 0,
         metrics: {
@@ -811,6 +812,111 @@
         return false;
     }
 
+    function getPdfLinkTransformerAnchorCursor(targetNode) {
+        var node = targetNode || null;
+        while (node) {
+            var nodeName = node && node.name ? String(node.name()) : '';
+            if (nodeName) {
+                if (nodeName.indexOf('top-left') !== -1 || nodeName.indexOf('bottom-right') !== -1) {
+                    return 'nwse-resize';
+                }
+                if (nodeName.indexOf('top-right') !== -1 || nodeName.indexOf('bottom-left') !== -1) {
+                    return 'nesw-resize';
+                }
+                if (nodeName.indexOf('middle-left') !== -1 || nodeName.indexOf('middle-right') !== -1) {
+                    return 'ew-resize';
+                }
+                if (nodeName.indexOf('top-center') !== -1 || nodeName.indexOf('bottom-center') !== -1) {
+                    return 'ns-resize';
+                }
+            }
+            node = node.getParent ? node.getParent() : null;
+        }
+        return null;
+    }
+
+    function getTextboxAnnotationDataFromPdfLinkHit(pageNumber, hit) {
+        if (!hit) {
+            return null;
+        }
+        var group = null;
+        if (hit.kind === 'group' && hit.group) {
+            group = hit.group;
+        } else if (hit.kind === 'transformer') {
+            if (isPdfLinkTransformerAnchor(hit.target)) {
+                return null;
+            }
+            var pageState = getPageState(pageNumber);
+            if (pageState && pageState.transformer && typeof pageState.transformer.nodes === 'function') {
+                var nodes = pageState.transformer.nodes();
+                if (Array.isArray(nodes) && nodes.length === 1) {
+                    group = nodes[0];
+                }
+            }
+        }
+        if (!group || !group.getAttr) {
+            return null;
+        }
+        var data = group.getAttr('annotationData');
+        if (!data || data.type !== 'textbox' || !data.uuid) {
+            return null;
+        }
+        return data;
+    }
+
+    function getTextboxAnnotationDataFromPdfLinkEvent(pageNumber, nativeEvt) {
+        if (!nativeEvt) {
+            return null;
+        }
+        var hit = findKonvaHitAtClientPoint(pageNumber, nativeEvt);
+        return getTextboxAnnotationDataFromPdfLinkHit(pageNumber, hit);
+    }
+
+    function registerPdfLinkTextboxDoubleActivate(pageNumber, annotationData, nativeEvt, source) {
+        if (!annotationData || annotationData.type !== 'textbox' || !annotationData.uuid) {
+            state._lastTextboxClick = null;
+            return false;
+        }
+        if (state.activeTool !== 'select') {
+            state._lastTextboxClick = null;
+            return false;
+        }
+        var gesture = state._pdfLinkGesture;
+        if (gesture && Number(gesture.pageNumber) === Number(pageNumber) && gesture.wasDragging) {
+            state._lastTextboxClick = null;
+            return false;
+        }
+        var now = Date.now();
+        var uuid = String(annotationData.uuid);
+        var last = state._lastTextboxClick;
+        if (last && String(last.uuid) === uuid && (now - Number(last.time || 0)) < 400) {
+            state._lastTextboxClick = null;
+            return !!openTextboxEditorGuarded(pageNumber, annotationData, source || 'pdf-link-double-activate', nativeEvt, { selectOnly: true });
+        }
+        state._lastTextboxClick = { time: now, pageNumber: pageNumber, uuid: uuid };
+        return false;
+    }
+
+    function setPdfLinkAnchorCursor(anchor, pageNumber, nativeEvt) {
+        if (!anchor) {
+            return;
+        }
+        if (state.activeTool !== 'select') {
+            anchor.style.cursor = 'pointer';
+            return;
+        }
+        var hit = findKonvaHitAtClientPoint(pageNumber, nativeEvt);
+        if (!hit) {
+            anchor.style.cursor = 'pointer';
+            return;
+        }
+        if (hit.kind === 'transformer' && isPdfLinkTransformerAnchor(hit.target)) {
+            anchor.style.cursor = getPdfLinkTransformerAnchorCursor(hit.target) || 'nwse-resize';
+            return;
+        }
+        anchor.style.cursor = 'default';
+    }
+
     function remapPdfLinkTransformerInteriorHit(pageNumber, hit) {
         if (!hit || hit.kind !== 'transformer') {
             return hit;
@@ -1087,7 +1193,13 @@
         }
         var now = Date.now();
         var skipUntil = Number(state._pdfLinkSkipClickUntil || 0);
+        var textboxData = getTextboxAnnotationDataFromPdfLinkEvent(pageNumber, nativeEvt);
         if (skipUntil > now) {
+            if (textboxData) {
+                registerPdfLinkTextboxDoubleActivate(pageNumber, textboxData, nativeEvt, 'pdf-link-skip-click');
+            } else {
+                state._lastTextboxClick = null;
+            }
             cleanupPdfLinkGesture();
             return true;
         }
@@ -1097,6 +1209,13 @@
             } else if (gesture.kind === 'group' && gesture.group) {
                 reconstructPdfLinkSelectTap(pageNumber, 'group', gesture.group);
             }
+            if (textboxData) {
+                registerPdfLinkTextboxDoubleActivate(pageNumber, textboxData, nativeEvt, 'pdf-link-click');
+            } else {
+                state._lastTextboxClick = null;
+            }
+        } else {
+            state._lastTextboxClick = null;
         }
         cleanupPdfLinkGesture();
         return true;
@@ -1347,11 +1466,12 @@
         anchors.forEach(function (anchor) {
             ['pointermove', 'mousemove'].forEach(function (moveEv) {
                 anchor.addEventListener(moveEv, function (ev) {
-                    if (state.activeTool !== 'select') {
-                        return;
-                    }
-                    var hit = findKonvaHitAtClientPoint(pageNumber, ev);
-                    anchor.style.cursor = hit ? 'default' : 'pointer';
+                    setPdfLinkAnchorCursor(anchor, pageNumber, ev);
+                }, true);
+            });
+            ['pointerleave', 'mouseleave'].forEach(function (leaveEv) {
+                anchor.addEventListener(leaveEv, function () {
+                    anchor.style.cursor = 'pointer';
                 }, true);
             });
             ['mousedown', 'touchstart'].forEach(function (downEv) {
@@ -1359,6 +1479,23 @@
                     handlePdfLinkPointerInteraction(pageNumber, ev);
                 }, true);
             });
+            anchor.addEventListener('dblclick', function (ev) {
+                if (state.activeTool !== 'select') {
+                    return;
+                }
+                var data = getTextboxAnnotationDataFromPdfLinkEvent(pageNumber, ev);
+                if (!data) {
+                    return;
+                }
+                if (ev && typeof ev.preventDefault === 'function') {
+                    ev.preventDefault();
+                }
+                if (ev && typeof ev.stopImmediatePropagation === 'function') {
+                    ev.stopImmediatePropagation();
+                }
+                state._lastTextboxClick = null;
+                openTextboxEditorGuarded(pageNumber, data, 'pdf-link-dblclick', ev, { selectOnly: true });
+            }, true);
             anchor.addEventListener('click', function (ev) {
                 if (handlePdfLinkGestureAnchorClick(pageNumber, ev)) {
                     return;
@@ -4224,7 +4361,7 @@
             }
             var data = activeGroup.getAttr('annotationData');
             if (data && data.uuid) {
-                showTextboxEditor(pageNumber, data);
+                openTextboxEditorGuarded(pageNumber, data, 'transformer-dblclick', event && event.evt, { selectOnly: false });
             }
         });
         transformer.on('transformend', function () {
@@ -4788,7 +4925,7 @@
                                 var last = state._lastTextboxClick;
                                 if (last && last.uuid === data.uuid && (Date.now() - last.time) < 400) {
                                     state._lastTextboxClick = null;
-                                    showTextboxEditor(pageNumber, data);
+                                    openTextboxEditorGuarded(pageNumber, data, 'stage-click-pair', event && event.evt, { selectOnly: false });
                                     return;
                                 }
                                 state._lastTextboxClick = { time: Date.now(), pageNumber: pageNumber, uuid: data.uuid };
@@ -4918,6 +5055,7 @@
             if (domTarget && domTarget.closest && (domTarget.closest('.tl-inline-text-editor') || domTarget.closest('.tl-save-textbox'))) {
                 return;
             }
+            var tool = state.activeTool;
             if (tool === 'cursor') {
                 return;
             }
@@ -4953,7 +5091,7 @@
             if (hitGroup) {
                 var data = hitGroup.getAttr('annotationData');
                 if (data && data.type === 'textbox' && data.uuid) {
-                    showTextboxEditor(pageNumber, data);
+                    openTextboxEditorGuarded(pageNumber, data, 'stage-dblclick', event && event.evt, { selectOnly: false });
                 }
             }
         });
@@ -6791,6 +6929,62 @@
         layoutTextboxBoxUnscaled(null, annotationData);
     }
 
+    function openTextboxEditorGuarded(pageNumber, annotationData, source, nativeEvt, options) {
+        if (!annotationData || !annotationData.uuid) {
+            return false;
+        }
+        var opts = options || {};
+        if (opts.selectOnly && state.activeTool !== 'select') {
+            return false;
+        }
+        var uuid = String(annotationData.uuid);
+        var now = Date.now();
+        var guardWindowMs = Number(opts.guardWindowMs);
+        if (!Number.isFinite(guardWindowMs) || guardWindowMs <= 0) {
+            guardWindowMs = 320;
+        }
+
+        var activeSession = state.textboxActiveSession;
+        if (activeSession && activeSession.editor && activeSession.editor.isConnected) {
+            var activeEditorId = String((activeSession.editor.dataset && activeSession.editor.dataset.annotationId) || '');
+            if (activeEditorId === uuid) {
+                try {
+                    activeSession.editor.focus();
+                    activeSession.editor.select();
+                } catch (eActiveFocus) {
+                    // ignore
+                }
+                state._textboxOpenGuard = { uuid: uuid, ts: now, source: source || '' };
+                return true;
+            }
+        }
+
+        var viewer = viewerEl();
+        var pageElement = viewer ? viewer.querySelector('.page[data-page-number="' + pageNumber + '"]') : null;
+        if (pageElement) {
+            var existingEditor = pageElement.querySelector('.tl-inline-text-editor[data-annotation-id="' + uuid + '"]');
+            if (existingEditor) {
+                try {
+                    existingEditor.focus();
+                    existingEditor.select();
+                } catch (eExistingFocus) {
+                    // ignore
+                }
+                state._textboxOpenGuard = { uuid: uuid, ts: now, source: source || '' };
+                return true;
+            }
+        }
+
+        var guard = state._textboxOpenGuard;
+        if (guard && String(guard.uuid || '') === uuid && (now - Number(guard.ts || 0)) < guardWindowMs) {
+            return true;
+        }
+
+        state._textboxOpenGuard = { uuid: uuid, ts: now, source: source || '' };
+        showTextboxEditor(pageNumber, annotationData);
+        return true;
+    }
+
     function showTextboxEditor(pageNumber, annotationData) {
         if (!annotationData || !annotationData.uuid) {
             return;
@@ -7526,7 +7720,7 @@
             group.on('dblclick dbltap', function (event) {
                 event.cancelBubble = true;
                 var currentData = group.getAttr('annotationData') || annotation;
-                showTextboxEditor(pageNumber, currentData);
+                openTextboxEditorGuarded(pageNumber, currentData, 'group-dblclick', event && event.evt, { selectOnly: false });
             });
         }
 
@@ -8273,7 +8467,7 @@
             }
             if (created.type === 'textbox') {
                 setTimeout(function () {
-                    showTextboxEditor(pageNumber, created);
+                    openTextboxEditorGuarded(pageNumber, created, 'create-textbox', null, { selectOnly: false });
                 }, 0);
             }
         }).catch(function (error) {
