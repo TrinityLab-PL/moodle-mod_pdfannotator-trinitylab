@@ -18,12 +18,11 @@ Kontekst: wdrozenie `v209_select_link_toggle_20260823_004029` (fix paritetu Sele
 
 ## Priorytet - funkcjonalne (otwarte)
 
-- [ ] **Textbox - regresja: wymaga 2 klikniec do wstawienia**
-  - Obecnie: pierwsze klikniecie na PDF nic nie wstawia, dopiero drugie otwiera edytor.
-  - Oczekiwane: jedno klikniecie -> natychmiast nowy Textbox (jak przed v192).
-  - Podejrzenie: `ignoreNextTextboxClick` (mouseup) + blur w tym samym cyklu; `textboxNativeGesture` bez progu ruchu.
-  - Plan naprawy: `/home/piotrad/.cursor/plans/textbox_single-click_fix_e41a065b.plan.md`
-  - Powiazane backupy: v192 (native drag), v197 (caret OK - nie ruszac).
+- [x] **Textbox - regresja: wymaga 2 klikniec do wstawienia**
+  - Fix A+B w kodzie (`ignoreNextTextboxClick` + `textboxNativeGesture` / `createGesture`).
+  - SMOKE PASS (2026-08-26): potwierdzenie uzytkownika — 1 klik otwiera edytor (w tym po zamknieciu poprzedniego pola).
+  - Plan: `/home/piotrad/.cursor/plans/textbox_single-click_fix_e41a065b.plan.md`
+  - Powiazane: v192 (native drag), v197 (caret — bez regresji).
 
 - [x] **Textbox - zapis przy scrollu (wariant A/B)**
   - v214 (`maybeCommitHiddenTextboxSession`): auto-zapis gdy pole calkowicie znika z widoku PDF (+1em), nie tylko przy zmianie strony.
