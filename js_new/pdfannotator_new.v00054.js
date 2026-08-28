@@ -222,27 +222,16 @@
         return (Number.isFinite(state.zoomUser) && state.zoomUser > 0) ? state.zoomUser : 1;
     }
 
-    function rasterPixelRatioForPage(pageNumber) {
+    function rasterPixelRatioForLayout() {
         var pr = window.devicePixelRatio || 1;
         if (!isTheaterModeActive() || Math.abs(getRequestedZoom() - 1) >= 0.0001) {
             return pr;
         }
-        var cur = getCurrentPage();
-        var d = Math.abs(Number(pageNumber) - cur);
-        if (d === 0) {
-            return Math.min(3, pr * 1.22);
-        }
-        if (d === 1) {
-            if (isFastScrollingNow()) {
-                return Math.min(1.2, pr);
-            }
-            return Math.min(1.75, pr * 1.02);
-        }
-        return Math.min(1.32, pr * 0.98);
+        return Math.min(3, pr * 1.22);
     }
 
-    function rasterPixelRatioForLayout() {
-        return rasterPixelRatioForPage(getCurrentPage(true));
+    function rasterPixelRatioForPage(pageNumber) {
+        return rasterPixelRatioForLayout();
     }
 
     function konvaPixelRatioForLayout() {
@@ -1818,14 +1807,7 @@
         var dpr = window.devicePixelRatio || 1;
         var fitKey = String(Math.round((Number(state.fitScale || 1)) * 500) / 500);
         var trBoost = (isTheaterModeActive() && Math.abs(getRequestedZoom() - 1) < 0.0001) ? 1 : 0;
-        var pn = Number(pageNumber);
-        if (!Number.isFinite(pn) || pn < 1) {
-            pn = getCurrentPage(true);
-        }
-        if (state.pdf && state.pdf.numPages) {
-            pn = Math.min(state.pdf.numPages, Math.max(1, pn));
-        }
-        var rp = rasterPixelRatioForPage(pn);
+        var rp = rasterPixelRatioForLayout();
         return String(s) + "|" + String(theater) + "|" + branch + "|" + String(dpr) + "|" + fitKey + "|tb" + String(trBoost) + "|rp" + String(Math.round(rp * 10000) / 10000);
     }
 
@@ -2578,9 +2560,13 @@
                 if (!state.pdf || isTheatreLayoutTransitionBusy()) {
                     return;
                 }
-                var visIdle = getVisiblePageRange();
-                var kfIdle = Math.max(1, visIdle.from - 1);
-                var ktIdle = Math.min(state.pdf.numPages, visIdle.to + 1);
+                var visIdle = getViewportIntersectingPageRange();
+                var kfIdle = Math.max(1, visIdle.from);
+                var ktIdle = Math.min(state.pdf.numPages, visIdle.to);
+                if (!isFastScrollingNow()) {
+                    kfIdle = Math.max(1, visIdle.from - 1);
+                    ktIdle = Math.min(state.pdf.numPages, visIdle.to + 1);
+                }
                 pruneFarPages(kfIdle, ktIdle);
                 recordPdfMemTelemetry('scrollIdle');
             }, 260);
@@ -2857,7 +2843,7 @@
             state.renderQueueMap = {};
             state.renderSchedulePending = false;
             try {
-                var preRange = getVisiblePageRange();
+                var preRange = getViewportIntersectingPageRange();
                 pruneFarPages(Math.max(1, preRange.from - 1), Math.min(state.pdf.numPages, preRange.to + 1));
             } catch (prePruneError) {}
         }
@@ -3411,6 +3397,42 @@
         }
     }
 
+
+    function getViewportIntersectingPageRange() {
+        var viewer = viewerEl();
+        var total = state.pdf ? state.pdf.numPages : 1;
+        if (!viewer || total <= 1) {
+            return { from: 1, to: total };
+        }
+        var top = viewer.scrollTop;
+        var bottom = top + viewer.clientHeight;
+        var pages = viewer.querySelectorAll(".page");
+        var first = 0;
+        var last = 0;
+        pages.forEach(function (pageEl) {
+            var p = parseInt(pageEl.getAttribute("data-page-number") || "0", 10);
+            if (!p) {
+                return;
+            }
+            var pageTop = pageEl.offsetTop;
+            var pageBottom = pageTop + pageEl.offsetHeight;
+            if (pageBottom >= top && pageTop <= bottom) {
+                if (!first || p < first) {
+                    first = p;
+                }
+                if (!last || p > last) {
+                    last = p;
+                }
+            }
+        });
+        if (!first || !last) {
+            var current = getCurrentPage();
+            first = current;
+            last = current;
+        }
+        return { from: first, to: last };
+    }
+
     function getVisiblePageRange() {
         var viewer = viewerEl();
         var total = state.pdf ? state.pdf.numPages : 1;
@@ -3750,8 +3772,9 @@
             var keepFrom;
             var keepTo;
             if (fastScrolling) {
-                keepFrom = Math.max(1, visible.from);
-                keepTo = Math.min(state.pdf.numPages, visible.to);
+                var viewportKeep = getViewportIntersectingPageRange();
+                keepFrom = Math.max(1, viewportKeep.from);
+                keepTo = Math.min(state.pdf.numPages, viewportKeep.to);
             } else {
                 keepFrom = Math.max(1, from - (theatre ? 0 : 2));
                 keepTo = Math.min(state.pdf.numPages, to + (theatre ? 0 : 2));

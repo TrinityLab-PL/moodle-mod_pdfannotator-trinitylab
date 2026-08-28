@@ -23,6 +23,11 @@ Kontekst: wdrozenie `v209_select_link_toggle_20260823_004029` (fix paritetu Sele
 - [x] **Select nad linkiem przy zoom 150%**
   - SMOKE PASS (2026-08-28): potwierdzenie uzytkownika — Select nad linkiem przy 150% dziala (paritet z 100%).
 
+- [x] **Delete klawiszem nad linkiem PDF (Select)**
+  - Fix v221 (`v221_delete_key_link_focus_20260828_213216`): paritet fokusu (`tabIndex`, `releasePdfLinkLayerFocus`, capture Delete). `?ver=cdf0bdc0`.
+  - UX bez zmian: po zaznaczeniu fokus zostaje na adnotacji, Delete usuwa (takze po chwili, bez Add comment).
+  - SMOKE PASS (2026-08-28): potwierdzenie uzytkownika — Delete pracuje prawidlowo.
+
 ## Priorytet - funkcjonalne (otwarte)
 
 - [x] **Textbox - regresja: wymaga 2 klikniec do wstawienia**
