@@ -1502,6 +1502,9 @@
                 }
                 handlePdfLinkPointerInteraction(pageNumber, ev);
             }, true);
+            if (state.activeTool === 'select') {
+                anchor.tabIndex = -1;
+            }
         });
     }
 
@@ -2230,6 +2233,11 @@
 
         state.activeTool = nextTool;
         var buttons = document.querySelectorAll('#toolbarContent [data-tooltype]');
+        if (nextTool === 'select') {
+            document.querySelectorAll('#viewer .tl-pdf-link-layer a').forEach(function (a) {
+                a.tabIndex = -1;
+            });
+        }
         buttons.forEach(function (button) {
             var active = button.getAttribute('data-tooltype') === state.activeTool;
             button.classList.toggle('tl-tool-active', active);
@@ -5927,7 +5935,7 @@
                 event.preventDefault();
                 deleteActiveAnnotation();
             }
-        });
+        }, true);
     }
 
     function ensureCommentComposer() {
@@ -7847,6 +7855,23 @@
         syncAllAnnotationCommentBadges();
     }
 
+
+    function releasePdfLinkLayerFocus() {
+        var active = document.activeElement;
+        if (active && active.closest && active.closest(".tl-pdf-link-layer")) {
+            active.blur();
+        }
+    }
+
+    function ensureViewerKeyboardFocus() {
+        var viewer = viewerEl();
+        if (!viewer) { return; }
+        if (!viewer.hasAttribute("tabindex")) {
+            viewer.setAttribute("tabindex", "-1");
+        }
+        try { viewer.focus({ preventScroll: true }); } catch (e) {}
+    }
+
     function selectAnnotation(pageNumber, group) {
         clearSelection();
         
@@ -7867,6 +7892,8 @@
             pageState.overlayLayer.draw();
         }
         showDeleteButton();
+        releasePdfLinkLayerFocus();
+        ensureViewerKeyboardFocus();
         syncAllAnnotationCommentBadges();
     }
 
@@ -8260,8 +8287,8 @@
         }
         var active = state.activeAnnotation;
         var group = active.group;
-        var annotationId = group && group.getAttr('annotationId');
-        if (!annotationId) {
+        var annotationId = getStableAnnotationIdForGroup(group);
+        if (!annotationId || annotationId === '') {
             return;
         }
         if (!canDeleteAnnotationOnCanvas(group.getAttr('annotationData') || {})) {
