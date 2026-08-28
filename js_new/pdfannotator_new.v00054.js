@@ -1152,6 +1152,14 @@
         if (gesture.wasDragging || gesture.kind === 'transformer') {
             gesture.suppressClick = true;
         }
+        if (!pendingSnapshot && gesture.kind === 'transformer' && gesture.wasDragging) {
+            var activeAnno = state.activeAnnotation;
+            var activeGroup = activeAnno && activeAnno.group;
+            var activeData = activeGroup && activeGroup.getAttr ? activeGroup.getAttr('annotationData') : null;
+            if (activeData && activeData.type === 'textbox') {
+                clearSelection();
+            }
+        }
         if (!pendingSnapshot && gesture.family === 'touch' && gesture.kind === 'transformer' && !gesture.wasDragging) {
             reconstructPdfLinkSelectTap(gesture.pageNumber, 'transformer', null, { selectGroup: false });
         }
@@ -6981,6 +6989,7 @@
         }
 
         state._textboxOpenGuard = { uuid: uuid, ts: now, source: source || '' };
+        clearSelection();
         showTextboxEditor(pageNumber, annotationData);
         return true;
     }
