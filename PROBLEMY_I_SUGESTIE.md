@@ -12,16 +12,12 @@ Kontekst: wdrozenie `v209_select_link_toggle_20260823_004029` (fix paritetu Sele
   - Backup: `v215_select_textbox_link_drag_20260826_175712`, `v218_textbox_cursor_dblclick_20260826_223753`.
 
 - [ ] **Textbox nad linkiem - double-click reedycja: podwojna ramka (zaznaczenie + edytor)**
-  - Obecnie (po v218): pierwszy klik nad linkiem uruchamia zaznaczenie (transformer + rozowy krzyzyk); drugi klik wlacza reedycje (pole tekstowe + zielony ptaszek), ale zaznaczenie **zostaje** — widoczne sa **dwie ramki jednoczesnie**.
-  - Poza linkiem: tego efektu **nie ma** (paritet oczekiwany).
+  - Wdrozone v219 (`v219_textbox_link_deselect_20260828_173058`): `clearSelection()` tuż przed `showTextboxEditor` w `openTextboxEditorGuarded`. Czeka na SMOKE.
   - Oczekiwane: po wejsciu w reedycje brak rownoleglego stanu „zaznaczone + edytor”; zachowanie jak poza linkiem (edytor bez wiszacego zaznaczenia / krzyzyka).
-  - Powiazany backup: `v218_textbox_cursor_dblclick_20260826_223753`.
 
 - [ ] **Textbox nad linkiem - resize kotwic: zaznaczenie w starym rozmiarze**
-  - Obecnie (po v218): przeciaganie rogu (resize) nad linkiem konczy sie **zaznaczeniem** pola i rozowym krzyzykiem w miejscu **pierwotnego** rozmiaru, a nie przy aktualnym prawym górnym rogu po resize.
-  - Poza linkiem: po resize pole jest **odznaczone** — brak rozowego krzyzyka i kotwic; tak ma byc rowniez nad linkiem.
+  - Wdrozone v219 (`v219_textbox_link_deselect_20260828_173058`): deselekcja w `finalizePdfLinkGestureOnUp` tylko dla resize kotwic Textboxa (`!pendingSnapshot` + `wasDragging` + type textbox). Czeka na SMOKE.
   - Oczekiwane: paritet z zachowaniem poza linkiem (po resize: odznaczenie, bez krzyzyka/kotwic; pozycja UI zgodna z aktualnym bbox).
-  - Powiazany backup: `v218_textbox_cursor_dblclick_20260826_223753`.
 
 - [ ] **Select nad linkiem przy zoom 150%**
   - Obecnie: przy powiekszeniu 150% pojawiaja sie problemy z klikaniem Select nad obszarem linku (hit-test / warstwa `<a>` vs Konva).
