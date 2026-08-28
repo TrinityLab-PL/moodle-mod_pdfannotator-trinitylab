@@ -1,8 +1,8 @@
 # PDF Annotator - Zgloszone problemy i sugestie
 
-Data aktualizacji: 2026-08-26
+Data aktualizacji: 2026-08-28
 
-## Dlug techniczny - link layer / Select (otwarte)
+## Dlug techniczny - link layer / Select (zamkniete 2026-08-28)
 
 Kontekst: wdrozenie `v209_select_link_toggle_20260823_004029` (fix paritetu Select nad linkiem PDF; `reconstructPdfLinkSelectTap`). Ogolnie lepiej niz przed fixem, ale:
 
@@ -11,18 +11,17 @@ Kontekst: wdrozenie `v209_select_link_toggle_20260823_004029` (fix paritetu Sele
   - SMOKE PASS (2026-08-26): drag Textboxa Selectem nad linkiem dziala.
   - Backup: `v215_select_textbox_link_drag_20260826_175712`, `v218_textbox_cursor_dblclick_20260826_223753`.
 
-- [ ] **Textbox nad linkiem - double-click reedycja: podwojna ramka (zaznaczenie + edytor)**
-  - Wdrozone v219 (`v219_textbox_link_deselect_20260828_173058`): `clearSelection()` tuż przed `showTextboxEditor` w `openTextboxEditorGuarded`. Czeka na SMOKE.
-  - Oczekiwane: po wejsciu w reedycje brak rownoleglego stanu „zaznaczone + edytor”; zachowanie jak poza linkiem (edytor bez wiszacego zaznaczenia / krzyzyka).
+- [x] **Textbox nad linkiem - double-click reedycja: podwojna ramka (zaznaczenie + edytor)**
+  - Fix v219 (`v219_textbox_link_deselect_20260828_173058`): `clearSelection()` tuż przed `showTextboxEditor` w `openTextboxEditorGuarded`.
+  - SMOKE PASS (2026-08-28): potwierdzenie uzytkownika — brak rownoleglego stanu zaznaczenie + edytor nad linkiem.
 
-- [ ] **Textbox nad linkiem - resize kotwic: zaznaczenie w starym rozmiarze**
-  - Wdrozone v219 (`v219_textbox_link_deselect_20260828_173058`): deselekcja w `finalizePdfLinkGestureOnUp` tylko dla resize kotwic Textboxa (`!pendingSnapshot` + `wasDragging` + type textbox). Czeka na SMOKE.
-  - Oczekiwane: paritet z zachowaniem poza linkiem (po resize: odznaczenie, bez krzyzyka/kotwic; pozycja UI zgodna z aktualnym bbox).
+- [x] **Textbox nad linkiem - resize kotwic: zaznaczenie w starym rozmiarze**
+  - v219 SMOKE FAIL (2026-08-28): gorny-lewy rag — kotwice/krzyzyk w starym bbox.
+  - Fix v220 (`v220_textbox_transformend_deselect_20260828_191342`): `clearSelection()` w `transformer.on('transformend')`; usuniety hook v219 z `finalizePdfLinkGestureOnUp`. `?ver=b220f6e2`.
+  - SMOKE PASS (2026-08-28): potwierdzenie uzytkownika — resize gorny-lewy/prawy-dolny, brak wiszacego UI, F5 OK.
 
-- [ ] **Select nad linkiem przy zoom 150%**
-  - Obecnie: przy powiekszeniu 150% pojawiaja sie problemy z klikaniem Select nad obszarem linku (hit-test / warstwa `<a>` vs Konva).
-  - Oczekiwane: ten sam paritet zachowania co przy 100% (zaznaczanie, odznaczanie ramka, brak otwarcia URL na adnotacji).
-  - Do sprawdzenia: rowniez 133% / 200% i fullscreen.
+- [x] **Select nad linkiem przy zoom 150%**
+  - SMOKE PASS (2026-08-28): potwierdzenie uzytkownika — Select nad linkiem przy 150% dziala (paritet z 100%).
 
 ## Priorytet - funkcjonalne (otwarte)
 
