@@ -2793,14 +2793,15 @@ body:not(.tl-pdf-fullscreen) #viewer {
     padding: 0.17em 12px;
 }
 
-/* TL_KK_LIST_QC_INITIAL v232: align + bliżej kwadratu; wrap v228 zostaje */
+/* TL_KK_LIST_QC_INITIAL v233: line-height sync + em (wrap v228 + zoom) */
 .path-mod-pdfannotator #comment-wrapper .comment-list-container.tl-q-overview > .tl-question-item .tl-comment-body p .tl-comment-badge,
 .path-mod-pdfannotator #comment-wrapper .comment-list-container.tl-q-overview > .tl-question-item .tl-comment-body > .tl-comment-badge {
     float: left !important;
-    width: 18px !important;
-    min-width: 18px !important;
-    height: 16px !important;
-    margin-top: 2px;
+    font-size: inherit;
+    width: 1.15em !important;
+    min-width: 1.15em !important;
+    height: 1.233em !important;
+    margin-top: 0.05em;
     margin-right: 0.45em;
     display: inline-flex !important;
     align-items: center;
@@ -3064,7 +3065,7 @@ body.tl-pdf-fullscreen #pdftoolbar {
 /* F5: QAC comment panel styles */
 .path-mod-pdfannotator .tl-comment-body {
     font-size: 1.17em;
-    line-height: 1.27em;
+    line-height: 1.283em;
     color: #111827;
     font-weight: 300;
 }
