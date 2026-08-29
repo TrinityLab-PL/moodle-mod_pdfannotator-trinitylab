@@ -520,7 +520,8 @@ if ($action === 'getQuestions') {
         $questions = pdfannotator_comment::get_questions_search($documentid, $pattern, $context);
         echo json_encode($questions);
     } else if ($pageid == -1) {
-        $questions = pdfannotator_comment::get_all_questions($documentid, $context);
+        $includerootcomments = optional_param('include_root_comments', 0, PARAM_INT);
+        $questions = pdfannotator_comment::get_all_questions($documentid, $context, (bool) $includerootcomments);
         $pdfannotatorname = $DB->get_field('pdfannotator', 'name', array('id' => $documentid), $strictness = MUST_EXIST);
         $result = array('questions' => $questions, 'pdfannotatorname' => $pdfannotatorname);
         echo json_encode($result);

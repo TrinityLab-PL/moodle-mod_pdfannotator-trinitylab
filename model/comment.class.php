@@ -1070,13 +1070,18 @@ class pdfannotator_comment {
         return $ret;
     }
 
-    public static function get_all_questions($documentid, $context) {
+    public static function get_all_questions($documentid, $context, $includerootcomments = false) {
         global $DB;
         // Get all questions of a page with a subselect, where all ids of annotations of one page are selected.
         $sql = "SELECT c.*, a.page AS page, t.name AS annotationtype FROM {pdfannotator_comments} c "
                 . "JOIN {pdfannotator_annotations} a ON a.id = c.annotationid "
                 . "JOIN {pdfannotator_annotationtypes} t ON t.id = a.annotationtypeid "
-                . "WHERE c.isquestion = 1 AND a.pdfannotatorid = :docid";
+                . "WHERE a.pdfannotatorid = :docid";
+        if ($includerootcomments) {
+            $sql .= " AND (c.isquestion = 1 OR (c.isquestion = 0 AND (c.parentid IS NULL OR c.parentid = 0)))";
+        } else {
+            $sql .= " AND c.isquestion = 1";
+        }
         $questions = $DB->get_records_sql($sql, array('docid' => $documentid));
 
         $ret = [];

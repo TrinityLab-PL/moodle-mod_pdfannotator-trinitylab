@@ -47,6 +47,7 @@
         bootstrapped: false,
         searchPattern: '',
         _questionsCache: null,
+        _questionsReqId: 0,
         savedPosition: null,
         restorePositionPending: null,
         restoreBatchId: 0,
@@ -2531,10 +2532,6 @@
             var currentPageInput = document.getElementById('currentPage');
             if (currentPageInput) {
                 currentPageInput.value = String(current);
-            }
-            if (current !== state._lastQuestionsPage && !state.commentTarget && !state.showAllComments && typeof refreshQuestionsList === 'function') {
-                state._lastQuestionsPage = current;
-                refreshQuestionsList();
             }
             updatePageCounter(current);
             updateDeleteButtonPosition();
@@ -5364,7 +5361,7 @@
             toggleBtn = document.createElement('button');
             toggleBtn.id = 'toggleAllCommentsList';
             toggleBtn.className = 'btn-link';
-            toggleBtn.setAttribute('data-tl-tooltip', state.showAllComments ? 'Hide all comments' : 'Show all comments');
+            toggleBtn.setAttribute('data-tl-tooltip', state.showAllComments ? 'Show only questions' : 'Show all');
             toggleBtn.innerHTML = '<i class="icon fa fa-comment-o fa-fw"></i>';
             nav.prepend(toggleBtn);
         }
@@ -5403,12 +5400,12 @@
         }
         var label = toggleBtn.querySelector('.tl-toggle-all-label');
         if (label) {
-            var newText = state.showAllComments ? 'Hide all' : 'Show all';
+            var newText = state.showAllComments ? 'Show only questions' : 'Show all';
             if (label.textContent !== newText) {
                 label.textContent = newText;
             }
         }
-        toggleBtn.setAttribute('data-tl-tooltip', state.showAllComments ? 'Hide all comments' : 'Show all comments');
+        toggleBtn.setAttribute('data-tl-tooltip', state.showAllComments ? 'Show only questions' : 'Show all');
         toggleBtn.removeAttribute('title');
     }
     function getAnnotationGroupFromPage(pageNo, annotationId) {
@@ -5528,13 +5525,19 @@
         list.innerHTML = '';
         list.classList.add('tl-q-overview');
         if (!Array.isArray(entries) || entries.length === 0) {
-            list.innerHTML = '<div class="tl-comment-empty">No questions.</div>';
+            list.innerHTML = '<div class="tl-comment-empty">' + (state.showAllComments ? 'No questions or comments.' : 'No questions.') + '</div>';
             return;
         }
 
         entries.forEach(function (q) {
             var article = document.createElement('article');
             article.className = 'tl-comment-item tl-question-item';
+            if (state.showAllComments) {
+                var badge = document.createElement('span');
+                badge.className = 'tl-search-badge';
+                badge.textContent = Number(q.isquestion) === 1 ? 'Q' : 'C';
+                article.appendChild(badge);
+            }
             var body = document.createElement('div');
             body.className = 'tl-comment-body';
             body.innerHTML = q && q.content ? q.content : '';
@@ -5568,30 +5571,28 @@
             return;
         }
 
-        if (state.showAllComments) {
-            ajax('getQuestions', { page_Number: -1 }).then(function (data) {
-                if (state.commentTarget) return;
-                var grouped = (data && data.questions) ? data.questions : {};
-                var flat = [];
-                Object.keys(grouped).forEach(function (pg) {
-                    (grouped[pg] || []).forEach(function (q) {
-                        q.page = q.page || pg;
-                        flat.push(q);
-                    });
-                });
-                state._questionsCache = flat;
-                renderQuestionRows(list, filterBySearchPattern(flat));
-            });
-            return;
+        state._questionsReqId = (state._questionsReqId || 0) + 1;
+        var reqId = state._questionsReqId;
+        var wantAll = !!state.showAllComments;
+        var payload = { page_Number: -1 };
+        if (wantAll) {
+            payload.include_root_comments = 1;
         }
 
-        var p = document.getElementById('currentPage');
-        var pg = (p && p.value) ? p.value : 1;
-        ajax('getQuestions', { page_Number: pg }).then(function (questions) {
+        ajax('getQuestions', payload).then(function (data) {
             if (state.commentTarget) return;
-            var arr = Array.isArray(questions) ? questions : [];
-            state._questionsCache = arr;
-        renderQuestionRows(list, filterBySearchPattern(arr));
+            if (reqId !== state._questionsReqId) return;
+            if (!!state.showAllComments !== wantAll) return;
+            var grouped = (data && data.questions) ? data.questions : {};
+            var flat = [];
+            Object.keys(grouped).forEach(function (pg) {
+                (grouped[pg] || []).forEach(function (q) {
+                    q.page = q.page || pg;
+                    flat.push(q);
+                });
+            });
+            state._questionsCache = flat;
+            renderQuestionRows(list, filterBySearchPattern(flat));
         });
     }
 
@@ -5624,14 +5625,12 @@
         if (!btn.querySelector('.tl-toggle-all-label')) {
             var lbl = document.createElement('span');
             lbl.className = 'tl-toggle-all-label';
-            lbl.textContent = state.showAllComments ? 'Hide all' : 'Show all';
+            lbl.textContent = state.showAllComments ? 'Show only questions' : 'Show all';
             btn.appendChild(lbl);
         }
         btn.addEventListener('click', function () {
             if (state.commentTarget) {
-                clearCommentTarget();
-                ensureCommentNavControls();
-                return;
+                clearCommentTarget({ skipRefresh: true });
             }
             state.showAllComments = !state.showAllComments;
             state._lastQuestionsPage = null;
@@ -6116,13 +6115,16 @@
         }
     }
 
-    function clearCommentTarget() {
+    function clearCommentTarget(opts) {
+        opts = opts || {};
         state.commentTarget = null;
         var composer = ensureCommentComposer();
         if (composer && composer.syncState) {
             composer.syncState();
         }
-        refreshQuestionsList();
+        if (!opts.skipRefresh) {
+            refreshQuestionsList();
+        }
     }
 
     function renderCommentsPanel(commentsPayload) {
