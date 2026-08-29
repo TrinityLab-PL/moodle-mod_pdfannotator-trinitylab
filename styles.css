@@ -2793,6 +2793,35 @@ body:not(.tl-pdf-fullscreen) #viewer {
     padding: 0.17em 12px;
 }
 
+/* TL_KK_LIST_QC_INITIAL */
+.path-mod-pdfannotator #comment-wrapper .comment-list-container.tl-q-overview > .tl-question-item .tl-comment-body p .tl-comment-badge {
+    float: none;
+    margin-right: 0.45em;
+    vertical-align: middle;
+}
+.path-mod-pdfannotator #comment-wrapper .comment-list-container.tl-q-overview > .tl-question-item .tl-comment-body p .tl-comment-badge.tl-badge-question {
+    color: #a82519 !important;
+}
+.path-mod-pdfannotator #comment-wrapper .comment-list-container.tl-q-overview > .tl-question-item .tl-comment-body p .tl-comment-badge.tl-badge-comment {
+    color: #394f96 !important;
+}
+.path-mod-pdfannotator #comment-wrapper .comment-list-container.tl-q-overview > .tl-question-item .tl-comment-body > .tl-comment-badge {
+    float: left;
+    margin-right: 0.45em;
+    vertical-align: middle;
+}
+.path-mod-pdfannotator #comment-wrapper .comment-list-container.tl-q-overview > .tl-question-item .tl-comment-body > .tl-comment-badge.tl-badge-question {
+    color: #a82519 !important;
+}
+.path-mod-pdfannotator #comment-wrapper .comment-list-container.tl-q-overview > .tl-question-item .tl-comment-body > .tl-comment-badge.tl-badge-comment {
+    color: #394f96 !important;
+}
+.path-mod-pdfannotator #comment-wrapper .comment-list-container.tl-q-overview > .tl-question-item .tl-comment-body::after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
 
 /* TL_COMMENT_LIST_ROOT_WIDTH_V60: equal card width for trash/meta alignment */
 .path-mod-pdfannotator #comment-wrapper .comment-list-container > .tl-comment-item {

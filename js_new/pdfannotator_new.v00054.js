@@ -5532,15 +5532,29 @@
         entries.forEach(function (q) {
             var article = document.createElement('article');
             article.className = 'tl-comment-item tl-question-item';
-            if (state.showAllComments) {
-                var badge = document.createElement('span');
-                badge.className = 'tl-search-badge';
-                badge.textContent = Number(q.isquestion) === 1 ? 'Q' : 'C';
-                article.appendChild(badge);
-            }
             var body = document.createElement('div');
             body.className = 'tl-comment-body';
             body.innerHTML = q && q.content ? q.content : '';
+
+            var isQ = Number(q.isquestion) === 1;
+            var badge = document.createElement('span');
+            badge.className = 'tl-comment-badge ' + (isQ ? 'tl-badge-question' : 'tl-badge-comment');
+            badge.setAttribute('title', isQ ? 'Question' : 'Comment');
+            badge.textContent = isQ ? 'Q' : 'C';
+
+            var firstP = null;
+            var ps = body.querySelectorAll('p');
+            var i, pt;
+            for (i = 0; i < ps.length; i++) {
+                pt = (ps[i].textContent || '').replace(/\u00a0/g, ' ').trim();
+                if (pt) { firstP = ps[i]; break; }
+            }
+            if (firstP) {
+                firstP.insertBefore(badge, firstP.firstChild);
+            } else {
+                body.insertBefore(badge, body.firstChild);
+            }
+
             article.appendChild(body);
 
             if (q && q.annotationid && q.page) {
