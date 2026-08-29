@@ -138,8 +138,21 @@
 - **Tylko w skrypcie:** `php admin/cli/purge_caches.php` jest wywoływane wewnątrz `mod/pdfannotator/edit-with-maintenance.sh` (`do_cmd` / `do_restore`). **Nie usuwać** tego z skryptu. Zmiany kodu pluginu idą wyłącznie przez ten skrypt (§3) — nie opisujemy oddzielnych ścieżek purge poza nim.
 
 - Przed zmianą: SANITY, SYNTAX, REGRES, SMOKE. Raport: `SANITY: OK/FAIL`, `SYNTAX: OK/FAIL`, `REGRES: OK/FAIL`, `SMOKE: OK/FAIL`.
-- **SANITY (CLI), snapshot referencyjny v157:**  
-  `cd /var/www/html/moodle && test -f mod/pdfannotator/shared/index.js && test -f mod/pdfannotator/edit-with-maintenance.sh && test -f mod/pdfannotator/_backups/v157_cleanup_20260408_224229/mod/pdfannotator/shared/index.js` — kod wyjścia 0.
+- **SANITY (CLI), snapshot referencyjny = trzeci najnowszy `vNNN` w `_backups/` (przedprzedostatni):**  
+  Numer wersji to `v` + liczba na początku nazwy katalogu (np. `v221_…`). Sortowanie **numeryczne** po NNN. Źródło SANITY = **trzeci od góry** (najnowszy, przedostatni, **przedprzedostatni**). Przykład: najnowsze to v221, v220, v219 → SANITY sprawdza **v219**. Przy mniej niż trzech unikalnych NNN: **FAIL**. W raporcie podać wybrany katalog.  
+  ```bash
+  cd /var/www/html/moodle && \
+    test -f mod/pdfannotator/shared/index.js && \
+    test -f mod/pdfannotator/edit-with-maintenance.sh && \
+    REF_NNN=$(ls -1 mod/pdfannotator/_backups | grep -oE '^v[0-9]+' | sed 's/^v//' | sort -n | uniq) && \
+    test "$(echo "$REF_NNN" | wc -l)" -ge 3 && \
+    REF_NNN=$(echo "$REF_NNN" | tail -3 | head -1) && \
+    SNAP=$(ls -1d mod/pdfannotator/_backups/v${REF_NNN}_* 2>/dev/null | head -1) && \
+    test -n "$SNAP" && \
+    test -f "$SNAP/mod/pdfannotator/shared/index.js" && \
+    echo "SANITY_REF=$(basename "$SNAP")"
+  ```
+  Kryterium zaliczenia: kod wyjścia `0`.
 - **SYNTAX (CLI):**  
   PHP: `php -l mod/pdfannotator/view.php && php -l mod/pdfannotator/lib.php`.  
   JS: `node --check /var/www/html/moodle/mod/pdfannotator/shared/index.js` (jeśli brak node: SYNTAX: SKIPPED).

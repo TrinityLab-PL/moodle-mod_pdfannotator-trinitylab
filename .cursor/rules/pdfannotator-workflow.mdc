@@ -60,13 +60,21 @@ Każdą zmianę poprzedzaj i kończ tym samym zestawem testów. W odpowiedzi zaw
 
 ### 1) SANITY-CHECK (CLI, przed zmianą)
 
+Snapshot referencyjny = **trzeci najnowszy** `vNNN` w `_backups/` (przedprzedostatni; sortowanie numeryczne). Przykład: v221, v220, v219 → **v219**. Mniej niż trzy unikalne NNN → FAIL. W raporcie podać `SANITY_REF`.
+
 Uruchom:
 
 ```bash
 cd /var/www/html/moodle && \
   test -f mod/pdfannotator/shared/index.js && \
   test -f mod/pdfannotator/edit-with-maintenance.sh && \
-  test -f mod/pdfannotator/_backups/v157_cleanup_20260408_224229/mod/pdfannotator/shared/index.js
+  REF_NNN=$(ls -1 mod/pdfannotator/_backups | grep -oE '^v[0-9]+' | sed 's/^v//' | sort -n | uniq) && \
+  test "$(echo "$REF_NNN" | wc -l)" -ge 3 && \
+  REF_NNN=$(echo "$REF_NNN" | tail -3 | head -1) && \
+  SNAP=$(ls -1d mod/pdfannotator/_backups/v${REF_NNN}_* 2>/dev/null | head -1) && \
+  test -n "$SNAP" && \
+  test -f "$SNAP/mod/pdfannotator/shared/index.js" && \
+  echo "SANITY_REF=$(basename "$SNAP")"
 ```
 
 Kryterium zaliczenia: kod wyjścia `0`.

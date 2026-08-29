@@ -107,7 +107,7 @@
     var cursorCache = {};
     var CURSOR_SIZE = 24;
     var IBEAM_PATH_TOOLBAR = 'M1 5 L1 3 Q5 4.2 9 3 L9 5 L6 5 L6 19 L9 19 L9 21 Q5 19.8 1 21 L1 19 L4 19 L4 5 Z';
-    var IBEAM_PATH_TEXTBOX_CURSOR = 'M1 5 L1 3 Q5 4.2 9 3 L9 5 L6 5 L6 19 L9 19 L9 21 Q5 19.8 1 21 L1 19 L4 19 L4 5 Z';
+    var IBEAM_PATH_TEXTBOX_CURSOR = 'M1 4.5 L1 3 Q5 4.2 9 3 L9 4.5 L5.5 4.5 L5.5 19.5 L9 19.5 L9 21 Q5 19.8 1 21 L1 19.5 L4.5 19.5 L4.5 4.5 Z';
     var FA_FONT_GLYPH_PATH = 'M254 52.8C249.3 40.3 237.3 32 224 32s-25.3 8.3-30 20.8L57.8 416H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32h-1.8l18-48H303.8l18 48H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H390.2L254 52.8zM279.8 304H168.2L224 155.1 279.8 304z';
 
     function buildWriterIBeamPath(mode) {
@@ -135,7 +135,7 @@
             s = '<path fill="' + f + '" d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34c-.39-.39-1.02-.39-1.41 0L9 12.25 11.75 15l8.96-8.96c.39-.39.39-1.02 0-1.41z"/>';
         } else if (tool === 'textbox') {
             var tbIBeamPath = buildWriterIBeamPath('textbox-cursor');
-            var tbFontGlyph = buildFaFontGlyphSvgFragment(f, { x: 12, y: 3, height: 16 });
+            var tbFontGlyph = buildFaFontGlyphSvgFragment(f, { x: 12, y: 6, height: 16 });
             var tbSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 24" width="32" height="24"><path fill="' + f + '" d="' + tbIBeamPath + '"/>' + tbFontGlyph + '</svg>';
             return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(tbSvg)));
         } else if (tool === 'highlight') {
