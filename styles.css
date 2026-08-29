@@ -1053,6 +1053,11 @@ body {
 /******************************************** START: mainly for overview page *******************************************/
 
 /* Boost drawers: more horizontal room in normal view only (not theatre / tl-pdf-fullscreen). */
+
+/* Secondary nav AMD fallback — normal view only */
+body.path-mod-pdfannotator:not(.tl-pdf-fullscreen) .secondary-navigation .moremenu {
+    opacity: 1;
+}
 @media (min-width: 768px) {
     body.path-mod-pdfannotator:not(.tl-pdf-fullscreen):not(.pdfannotator-overview) #page.drawers div[role="main"] {
         padding-left: 0;

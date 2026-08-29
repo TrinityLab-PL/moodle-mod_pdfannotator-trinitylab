@@ -81,9 +81,9 @@ function pdfannotator_display_embed($pdfannotator, $cm, $course, $file, $page = 
     // Trinity Lab perf (P3): bundle-split/lazy-load deferred until profiling warrants it.
     // Load and execute the migrated javascript stack.
     $PAGE->requires->js('/mod/pdfannotator/lib/pdfjs/pdf.min.js?ver=00003', false);
-    $PAGE->requires->js('/mod/pdfannotator/lib/konva/konva_loader.js?ver=00001', false);
+    $PAGE->requires->js('/mod/pdfannotator/lib/konva/konva.min.js?ver=00003', false);
     $PAGE->requires->js('/mod/pdfannotator/shared/textclipper.js', false);
-    $PAGE->requires->js('/mod/pdfannotator/lib/lazy-brush/lazy-brush.umd.js?ver=00002', false);
+    $PAGE->requires->js('/mod/pdfannotator/lib/lazy-brush/lazy-brush.umd.js?ver=00003', false);
     $PAGE->requires->js('/mod/pdfannotator/js_new/pdfannotator_new.v00054.js?ver=a9d2e7c3', false);
     $PAGE->requires->js('/mod/pdfannotator/shared/locallib.js?ver=00008', false);
 
