@@ -6466,39 +6466,42 @@
             article.appendChild(actionRow);
             bindActionRow(article, actionRow, rootIdStr);
 
-            var toggleRow = document.createElement('div');
-            toggleRow.className = 'tl-thread-toggle-row';
-            toggleRow.innerHTML = '<div class="tl-thread-toggle-gutter" aria-hidden="true"></div>'
-                + '<div class="tl-thread-toggle-inner">'
-                + '<button type="button" class="tl-thread-toggle">'
-                + '<i class="icon fa fa-minus tl-thread-toggle-icon" aria-hidden="true"></i>'
-                + '<span class="tl-thread-toggle-label">Collapse thread</span>'
-                + '</button></div>';
-            article.appendChild(toggleRow);
+            var flat = flatByRoot[rootIdStr] || [];
 
             var childrenDiv = document.createElement('div');
             childrenDiv.className = 'tl-comment-children';
+
+            if (flat.length > 0) {
+                var toggleRow = document.createElement('div');
+                toggleRow.className = 'tl-thread-toggle-row';
+                toggleRow.innerHTML = '<div class="tl-thread-toggle-gutter" aria-hidden="true"></div>'
+                    + '<div class="tl-thread-toggle-inner">'
+                    + '<button type="button" class="tl-thread-toggle">'
+                    + '<i class="icon fa fa-minus tl-thread-toggle-icon" aria-hidden="true"></i>'
+                    + '<span class="tl-thread-toggle-label">Collapse thread</span>'
+                    + '</button></div>';
+                article.appendChild(toggleRow);
+
+                var toggleBtn = toggleRow.querySelector('.tl-thread-toggle');
+                function syncThreadToggleUi(collapsed) {
+                    var iconEl = toggleBtn.querySelector('.tl-thread-toggle-icon');
+                    var labelEl = toggleBtn.querySelector('.tl-thread-toggle-label');
+                    if (iconEl) {
+                        iconEl.className = 'icon tl-thread-toggle-icon fa ' + (collapsed ? 'fa-plus' : 'fa-minus');
+                    }
+                    if (labelEl) {
+                        labelEl.textContent = collapsed ? 'Expand thread' : 'Collapse thread';
+                    }
+                }
+                toggleBtn.addEventListener('click', function () {
+                    var collapsed = childrenDiv.classList.toggle('tl-collapsed');
+                    syncThreadToggleUi(collapsed);
+                });
+            }
+
             article.appendChild(childrenDiv);
 
-            var toggleBtn = toggleRow.querySelector('.tl-thread-toggle');
-            function syncThreadToggleUi(collapsed) {
-                var iconEl = toggleBtn.querySelector('.tl-thread-toggle-icon');
-                var labelEl = toggleBtn.querySelector('.tl-thread-toggle-label');
-                if (iconEl) {
-                    iconEl.className = 'icon tl-thread-toggle-icon fa ' + (collapsed ? 'fa-plus' : 'fa-minus');
-                }
-                if (labelEl) {
-                    labelEl.textContent = collapsed ? 'Expand thread' : 'Collapse thread';
-                }
-            }
-            toggleBtn.addEventListener('click', function () {
-                var collapsed = childrenDiv.classList.toggle('tl-collapsed');
-                syncThreadToggleUi(collapsed);
-            });
-
             list.appendChild(article);
-
-            var flat = flatByRoot[rootIdStr] || [];
             var qInThread = null;
             if (pt === 'question') {
                 qInThread = root;
