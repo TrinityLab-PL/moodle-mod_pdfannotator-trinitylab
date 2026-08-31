@@ -160,6 +160,16 @@
 - **SMOKE (ręcznie):** otwarcie PDF, ewentualnie czyszczenie cache przeglądarki i twarde odświeżenie, potem zwykłe F5 — brak błędów blokujących flow. Po wdrożeniu asystent nie prosi o „Run” ani akceptację; jeśli potrzebna jest odpowiedź zwrotna, ma to być wyłącznie krótkie „działa/nie działa”.
 - Jeśli którykolwiek test ma FAIL — nie modyfikować kodu; najpierw naprawa.
 
+### 5.1 Matryca przeglądarek (MUST)
+
+- Każdy plan zmian kodu lub UI musi uwzględniać weryfikację w przeglądarkach:
+  - **Główne:** Chrome, Safari
+  - **Dodatkowe (obowiązkowe):** Edge, Firefox
+- Plan nie może ograniczać walidacji UI do jednej przeglądarki.
+- REGRES / SMOKE (ręczne) planować i raportować względem tej matrycy.
+- Po wdrożeniu: instrukcja SMOKE może być zwięzła (krótka lista kroków), ale musi wymienić wszystkie cztery przeglądarki w kolejności priorytetu (główne, potem dodatkowe). Zwięzłość dotyczy długości tekstu, nie pomijania przeglądarek.
+- Plany wyłącznie dokumentacyjne (bez zmian UI) nie wymagają testów w 4 przeglądarkach — wystarczy acceptance dokumentacji.
+
 ---
 
 ## 6. Które pliki analizować

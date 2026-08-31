@@ -127,6 +127,8 @@ Kryterium zaliczenia:
 5. Opcjonalnie (Chrome, Chromium, Safari, Firefox): wejście w fullscreen klawiszem F11 → ikona/tooltip w stanie „compress”; wyjście F11/ESC → ikona/tooltip w stanie „expand”.
 6. Kryterium zaliczenia: ikona zawsze odzwierciedla stan fullscreen, brak błędów w konsoli.
 
+**Matryca przeglądarek (§5.1):** przy zmianach kodu/UI kroki REGRES i SMOKE wykonać w kolejności: Chrome i Safari (główne), potem Edge i Firefox. Szczegóły: PDF_ANNOTATOR_ZASADY_PRACY.md §5.1. Zwięzła instrukcja SMOKE po deploy nadal musi wymienić te cztery przeglądarki (zwięzłość = długość tekstu, nie pomijanie). Plany wyłącznie dokumentacyjne — bez tej matrycy UI.
+
 ### 5) Bramka wykonania zmian
 
 Jeśli którykolwiek test ma `FAIL`, **NIE WOLNO** modyfikować kodu. Najpierw napraw przyczynę testu.
