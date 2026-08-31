@@ -29,6 +29,7 @@
         textSize: 14,
         textFont: 'Open Sans',
         commentTarget: null,
+        expandedRootCommentId: null,
         commentRequestToken: 0,
         annotationsLoadedOnce: false,
         annotationWarmupTimer: null,
@@ -2636,6 +2637,7 @@
     }
 
     function openCommentsPanelForGroup(pageNumber, group) {
+        state.expandedRootCommentId = null;
         if (!group) {
             return;
         }
@@ -5529,11 +5531,19 @@
             return;
         }
 
+        function goToQuestion(q) {
+            if (!q || !q.annotationid || !q.page) { return; }
+            state.expandedRootCommentId = String(q.id || q.uuid || '');
+            navigateToAnnotation(q.annotationid, String(q.annotationtype || ''), q.page);
+        }
+
         entries.forEach(function (q) {
             var article = document.createElement('article');
             article.className = 'tl-comment-item tl-question-item';
+            var wrap = document.createElement('div');
+            wrap.className = 'tl-overview-body-wrap';
             var body = document.createElement('div');
-            body.className = 'tl-comment-body';
+            body.className = 'tl-comment-body tl-overview-body-collapsible';
             body.innerHTML = q && q.content ? q.content : '';
 
             var isQ = Number(q.isquestion) === 1;
@@ -5555,16 +5565,33 @@
                 body.insertBefore(badge, body.firstChild);
             }
 
-            article.appendChild(body);
+            wrap.appendChild(body);
+            article.appendChild(wrap);
 
             if (q && q.annotationid && q.page) {
                 article.style.cursor = 'pointer';
                 article.addEventListener('click', function () {
-                    navigateToAnnotation(q.annotationid, String(q.annotationtype || ''), q.page);
+                    goToQuestion(q);
                 });
             }
 
             list.appendChild(article);
+
+            var lh = parseFloat(window.getComputedStyle(body).lineHeight) || 20;
+            var maxH = lh * 2;
+            if (body.scrollHeight > maxH + 4) {
+                body.style.maxHeight = maxH + 'px';
+                body.style.overflow = 'hidden';
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'tl-show-more';
+                btn.textContent = 'Show more...';
+                wrap.appendChild(btn);
+                btn.addEventListener('click', function (event) {
+                    event.stopPropagation();
+                    goToQuestion(q);
+                });
+            }
         });
     }
 
@@ -5762,6 +5789,7 @@
             }
             if (state.commentTarget) {
                 state.commentTarget = null;
+                state.expandedRootCommentId = null;
                 var _composerClear = ensureCommentComposer();
                 if (_composerClear && _composerClear.syncState) {
                     _composerClear.syncState();
@@ -6132,6 +6160,7 @@
     function clearCommentTarget(opts) {
         opts = opts || {};
         state.commentTarget = null;
+        state.expandedRootCommentId = null;
         var composer = ensureCommentComposer();
         if (composer && composer.syncState) {
             composer.syncState();
@@ -6558,6 +6587,13 @@
         });
 
         list.querySelectorAll('.tl-comment-body-collapsible').forEach(function (bodyEl) {
+            var articleEl = bodyEl.closest('article');
+            if (articleEl && articleEl.classList.contains('tl-comment-root')) {
+                var rootId = articleEl.getAttribute('data-comment-id');
+                if (rootId && state.expandedRootCommentId && String(rootId) === String(state.expandedRootCommentId)) {
+                    return;
+                }
+            }
             var lh   = parseFloat(window.getComputedStyle(bodyEl).lineHeight) || 20;
             var maxH = lh * 3;
             if (bodyEl.scrollHeight > maxH + 4) {
