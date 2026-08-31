@@ -30,6 +30,7 @@
         textFont: 'Open Sans',
         commentTarget: null,
         expandedRootCommentId: null,
+        kkScrollIntent: null,
         commentRequestToken: 0,
         annotationsLoadedOnce: false,
         annotationWarmupTimer: null,
@@ -2638,6 +2639,7 @@
 
     function openCommentsPanelForGroup(pageNumber, group) {
         state.expandedRootCommentId = null;
+        state.kkScrollIntent = null;
         if (!group) {
             return;
         }
@@ -5534,6 +5536,7 @@
         function goToQuestion(q) {
             if (!q || !q.annotationid || !q.page) { return; }
             state.expandedRootCommentId = String(q.id || q.uuid || '');
+            state.kkScrollIntent = { type: 'root', id: String(q.id || q.uuid || '') };
             navigateToAnnotation(q.annotationid, String(q.annotationtype || ''), q.page);
         }
 
@@ -5790,6 +5793,7 @@
             if (state.commentTarget) {
                 state.commentTarget = null;
                 state.expandedRootCommentId = null;
+                state.kkScrollIntent = null;
                 var _composerClear = ensureCommentComposer();
                 if (_composerClear && _composerClear.syncState) {
                     _composerClear.syncState();
@@ -6117,6 +6121,8 @@
                         preview.innerHTML = '<div class="tl-comment-meta"><strong>You</strong><span>Now</span></div>'
                             + '<div class="tl-comment-body">' + escapeHtml(submittedContent) + '</div>';
                         list.appendChild(preview);
+                        state.kkScrollIntent = { type: 'newPost', hint: String(submittedContent).slice(0, 80) };
+                        scrollListChildIntoView(list, preview);
                     }
                     var gPost = findAnnotationGroupById(String(targetId));
                     if (gPost) {
@@ -6161,6 +6167,7 @@
         opts = opts || {};
         state.commentTarget = null;
         state.expandedRootCommentId = null;
+        state.kkScrollIntent = null;
         var composer = ensureCommentComposer();
         if (composer && composer.syncState) {
             composer.syncState();
@@ -6168,6 +6175,13 @@
         if (!opts.skipRefresh) {
             refreshQuestionsList();
         }
+    }
+
+    function scrollListChildIntoView(list, el) {
+        if (!list || !el) { return; }
+        var top = el.getBoundingClientRect().top
+            - list.getBoundingClientRect().top + list.scrollTop;
+        list.scrollTop = Math.max(0, top);
     }
 
     function renderCommentsPanel(commentsPayload) {
@@ -6315,6 +6329,7 @@
                     input.value = '';
                     form.style.display = 'none';
                     if (state.commentTarget && state.commentTarget.annotationId) {
+                        state.kkScrollIntent = { type: 'newPost', hint: String(content).slice(0, 80) };
                         loadCommentsForAnnotation(state.commentTarget.annotationId, state.commentTarget.annotationType);
                     }
                 }).catch(function (error) {
@@ -6618,6 +6633,49 @@
                 });
             }
         });
+
+        /* KK_SCROLL_CLICKED_ROOT */
+        var intent = state.kkScrollIntent;
+        if (intent && intent.type === 'root' && intent.id) {
+            state.kkScrollIntent = null;
+            var wantId = String(intent.id);
+            var targetRoot = null;
+            var rootsEl = list.querySelectorAll('article.tl-comment-root');
+            var ri;
+            for (ri = 0; ri < rootsEl.length; ri++) {
+                var cid = String(rootsEl[ri].getAttribute('data-comment-id') || '');
+                if (cid === wantId || rootsEl[ri].id === 'tl-cmt-' + wantId) {
+                    targetRoot = rootsEl[ri];
+                }
+            }
+            if (targetRoot) {
+                scrollListChildIntoView(list, targetRoot);
+            } else {
+                list.scrollTop = 0;
+            }
+        } else if (intent && intent.type === 'newPost') {
+            var pending = list.querySelector('.tl-comment-item--pending');
+            var targetNew = pending;
+            if (!targetNew && intent.hint) {
+                var hint = String(intent.hint);
+                var items = list.querySelectorAll('article.tl-comment-item');
+                var i;
+                for (i = 0; i < items.length; i++) {
+                    var bodyMatch = items[i].querySelector('.tl-comment-body');
+                    var txt = bodyMatch ? (bodyMatch.textContent || '') : '';
+                    if (hint && txt.indexOf(hint) !== -1) {
+                        targetNew = items[i];
+                    }
+                }
+            }
+            if (targetNew) {
+                state.kkScrollIntent = null;
+                scrollListChildIntoView(list, targetNew);
+            }
+        } else if (!intent && !state.expandedRootCommentId) {
+            list.scrollTop = 0;
+        }
+        /* KK_SCROLL_CLICKED_ROOT_END */
 
         list.querySelectorAll('.tl-comment-delete').forEach(function (button) {
             button.addEventListener('click', function (event) {
