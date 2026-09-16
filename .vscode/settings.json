@@ -23,7 +23,9 @@
         "activityBarTop.inactiveForeground": "#15202b99",
         "commandCenter.foreground": "#595959",
         "statusBar.debuggingBackground": "#d6ac04",
-        "statusBar.debuggingForeground": "#15202b"
+        "statusBar.debuggingForeground": "#15202b",
+        "activityBar.activeBorder": "#15202b",
+        "activityBarTop.activeBorder": "#15202b"
     },
     "peacock.remoteColor": "#d6ac04",
     "ndjson.port": 9877
