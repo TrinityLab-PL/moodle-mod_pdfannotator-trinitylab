@@ -159,6 +159,7 @@ class pdfannotator_comment {
         $datarecord->displaycontent = pdfannotator_get_relativelink($datarecord->content, $datarecord->id, $context);
         $datarecord->displaycontent = format_text($datarecord->displaycontent, FORMAT_MOODLE, ['para' => false, 'filter' => true]);
         $datarecord->timecreatedts = $datarecord->timecreated;
+        $datarecord->timecreatedformatted = pdfannotator_get_user_datetime_defaultformat($datarecord->timecreated);
         $datarecord->timecreated = pdfannotator_optional_timeago($datarecord->timecreated);
         $datarecord->timemodified = pdfannotator_optional_timeago($datarecord->timemodified);
         $datarecord->usevotes = pdfannotator_instance::use_votes($documentid);
@@ -269,6 +270,7 @@ class pdfannotator_comment {
             }
 
             $comment->timecreatedts = $data->timecreated;
+            $comment->timecreatedformatted = pdfannotator_get_user_datetime_defaultformat($data->timecreated);
             $comment->timecreated = pdfannotator_optional_timeago($data->timecreated);
             // If the comment was edited.
             if ($data->timecreated != $data->timemodified) {

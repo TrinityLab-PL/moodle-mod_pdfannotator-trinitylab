@@ -84,7 +84,7 @@ function pdfannotator_display_embed($pdfannotator, $cm, $course, $file, $page = 
     $PAGE->requires->js('/mod/pdfannotator/lib/konva/konva.min.js?ver=00003', false);
     $PAGE->requires->js('/mod/pdfannotator/shared/textclipper.js', false);
     $PAGE->requires->js('/mod/pdfannotator/lib/lazy-brush/lazy-brush.umd.js?ver=00003', false);
-    $PAGE->requires->js('/mod/pdfannotator/js_new/pdfannotator_new.v00054.js?ver=b2scroll1', false);
+    $PAGE->requires->js('/mod/pdfannotator/js_new/pdfannotator_new.v00054.js?ver=dtlocale1', false);
     $PAGE->requires->js('/mod/pdfannotator/shared/locallib.js?ver=00008', false);
 
     // Pass parameters from PHP to JavaScript.
@@ -976,6 +976,18 @@ function pdfannotator_get_user_datetime_shortformat($timestamp) {
     $shortformat = get_string('strftimedatetime', 'pdfannotator'); // Format strings in moodle\lang\en\langconfig.php.
     $userdatetime = userdate($timestamp, $shortformat, $timezone = 99, $fixday = true, $fixhour = true); // Method in lib/moodlelib.php
     return $userdatetime;
+}
+
+
+/**
+ * Formats a timestamp using the current Moodle language and the user's timezone.
+ *
+ * @param int $timestamp Unix timestamp in UTC.
+ * @return string Localized date and time.
+ */
+function pdfannotator_get_user_datetime_defaultformat($timestamp) {
+    $format = get_string('strftimedatetime', 'langconfig');
+    return userdate($timestamp, $format, 99, true, true);
 }
 
 /**

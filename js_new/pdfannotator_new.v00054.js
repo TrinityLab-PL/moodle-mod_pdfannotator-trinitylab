@@ -5250,23 +5250,6 @@
             .replace(/'/g, '&#39;');
     }
 
-    function formatPolishTimestamp(rawTs, fallbackText) {
-        var ts = Number(rawTs);
-        if (!Number.isFinite(ts) || ts <= 0) {
-            return fallbackText || '';
-        }
-        var d = new Date(ts * 1000);
-        if (!Number.isFinite(d.getTime())) {
-            return fallbackText || '';
-        }
-        var day = d.getDate();
-        var month = String(d.getMonth() + 1).padStart(2, '0');
-        var year = d.getFullYear();
-        var hour = d.getHours();
-        var minute = String(d.getMinutes()).padStart(2, '0');
-        return String(day) + '.' + month + '.' + String(year) + ' r., godz. ' + String(hour) + ':' + minute;
-    }
-
     function extractRestorableComments(payload) {
         var comments = (payload && Array.isArray(payload.comments)) ? payload.comments : [];
         return comments.map(function (item) {
@@ -6389,7 +6372,7 @@
             var badgeLabel = pt === 'question' ? 'Q' : (pt === 'answer' ? 'A' : 'C');
             var badgeTitle = pt === 'question' ? 'Question' : (pt === 'answer' ? 'Answer' : 'Comment');
             var user   = escapeHtml(item.username || 'Użytkownik');
-            var time   = escapeHtml(formatPolishTimestamp(item.timecreatedts, item.timecreated || '') || item.timecreated || '');
+            var time   = escapeHtml(item.timecreatedformatted || item.timecreated || '');
             var body   = item.displaycontent || escapeHtml(item.content || '');
 
             var article = document.createElement('article');
@@ -6503,7 +6486,7 @@
             var badgeLabel = pt === 'question' ? 'Q' : 'C';
             var badgeTitle = pt === 'question' ? 'Question' : 'Comment';
             var user   = escapeHtml(root.username || 'Użytkownik');
-            var time   = escapeHtml(formatPolishTimestamp(root.timecreatedts, root.timecreated || '') || root.timecreated || '');
+            var time   = escapeHtml(root.timecreatedformatted || root.timecreated || '');
             var body   = root.displaycontent || escapeHtml(root.content || '');
 
             var article = document.createElement('article');
